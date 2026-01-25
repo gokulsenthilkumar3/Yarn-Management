@@ -1,0 +1,92 @@
+import { useState } from 'react';
+import { GoogleLogin } from '@react-oauth/google';
+import { Box, Button, Container, TextField, Typography } from '@mui/material';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { http } from '../lib/http';
+import { setAccessToken } from '../lib/auth';
+
+export default function LoginPage() {
+  const navigate = useNavigate();
+  const location = useLocation() as any;
+  const from = location?.state?.from?.pathname ?? '/dashboard';
+
+  const [email, setEmail] = useState('admin@example.com');
+  const [password, setPassword] = useState('admin123456!');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await http.post('/auth/login', { email, password });
+      const token = res.data?.accessToken as string;
+      if (!token) throw new Error('No access token returned');
+      setAccessToken(token);
+      navigate(from, { replace: true });
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? err?.message ?? 'Login failed');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Container maxWidth="sm">
+      <Box sx={{ mt: 10 }}>
+        <Typography variant="h4" sx={{ mb: 2 }}>
+          Yarn Management
+        </Typography>
+        <Box component="form" onSubmit={onSubmit} sx={{ display: 'grid', gap: 2 }}>
+          <TextField
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <TextField
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          {error ? (
+            <Typography variant="body2" color="error">
+              {error}
+            </Typography>
+          ) : null}
+          <Button type="submit" variant="contained" disabled={loading}>
+            {loading ? 'Signing in…' : 'Sign in'}
+          </Button>
+
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+            <GoogleLogin
+              onSuccess={async (credentialResponse) => {
+                try {
+                  setLoading(true);
+                  const res = await http.post('/auth/google', {
+                    idToken: credentialResponse.credential,
+                  });
+                  const token = res.data?.accessToken as string;
+                  setAccessToken(token);
+                  navigate(from, { replace: true });
+                } catch (err: any) {
+                  setError('Google Login Failed');
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              onError={() => {
+                setError('Google Login Failed');
+              }}
+            />
+          </Box>
+        </Box>
+      </Box>
+    </Container>
+  );
+}

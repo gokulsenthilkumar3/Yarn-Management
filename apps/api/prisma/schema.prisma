@@ -1,0 +1,403 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String         @id @default(uuid())
+  email          String         @unique
+  name           String?
+  passwordHash   String?
+  status         UserStatus     @default(ACTIVE)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  authProvider   AuthProvider   @default(EMAIL)
+  mfaBackupCodes String[]       @default([])
+  mfaEnabled     Boolean        @default(false)
+  mfaSecret      String?
+  auditLogs      AuditLog[]
+  refreshTokens  RefreshToken[]
+  roles          UserRole[]
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  code        String           @unique
+  name        String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  permissions RolePermission[]
+  users       UserRole[]
+}
+
+model Permission {
+  id        String           @id @default(uuid())
+  code      String           @unique
+  name      String
+  createdAt DateTime         @default(now())
+  roles     RolePermission[]
+}
+
+model UserRole {
+  userId String
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  action     String
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation(fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model Supplier {
+  id                        String               @id @default(uuid())
+  name                      String
+  email                     String?              @unique
+  phone                     String?
+  address                   String?
+  gstin                     String?              @unique
+  paymentTerms              String?              @default("NET 30")
+  rating                    Int?                 @default(0)
+  notes                     String?
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt
+  approvalDate              DateTime?
+  approvedBy                String?
+  assignedTo                String?
+  billingAddressLine1       String?
+  billingAddressLine2       String?
+  billingCity               String?
+  billingCountry            String?
+  billingLandmark           String?
+  billingPinCode            String?
+  billingState              String?
+  businessType              String
+  createdBy                 String?
+  createdDate               DateTime             @default(now())
+  lastModifiedBy            String?
+  lastModifiedDate          DateTime             @updatedAt
+  notesLegacy               String?
+  primaryContactDesignation String?
+  primaryContactEmail       String?
+  primaryContactLandline    String?
+  primaryContactMobile      String?
+  primaryContactName        String?
+  primaryContactWhatsApp    String?
+  registeredAddressLine1    String?
+  registeredAddressLine2    String?
+  registeredCity            String?
+  registeredCountry         String?
+  registeredLandmark        String?
+  registeredPinCode         String?
+  registeredState           String?
+  registrationDate          DateTime             @default(now())
+  secondaryContactName      String?
+  secondaryContactNumber    String?
+  status                    String               @default("Active")
+  supplierCode              String               @unique
+  supplierType              String
+  visibilityLevel           String?              @default("Public")
+  warehouseAddressLine1     String?
+  warehouseAddressLine2     String?
+  warehouseCity             String?
+  warehouseCountry          String?
+  warehouseLandmark         String?
+  warehousePinCode          String?
+  warehouseState            String?
+  rawMaterials              RawMaterial[]
+  account                   SupplierAccount?
+  material                  SupplierMaterial?
+  performance               SupplierPerformance?
+  pricing                   SupplierPricing?
+
+  @@index([email])
+  @@index([gstin])
+  @@index([supplierCode])
+  @@index([status])
+}
+
+model SupplierAccount {
+  id                    String   @id @default(uuid())
+  supplierId            String   @unique
+  gstNumber             String?  @unique
+  gstType               String?
+  gstVerificationStatus String?  @default("Pending")
+  panNumber             String?  @unique
+  msmeRegNumber         String?  @unique
+  udyamRegNumber        String?  @unique
+  tradeLicenseNumber    String?  @unique
+  iecNumber             String?  @unique
+  tinNumber             String?  @unique
+  tanNumber             String?  @unique
+  tdsRate               Decimal? @db.Decimal(5, 2)
+  stateJurisdiction     String?
+  bankAccountHolderName String?
+  bankName              String?
+  bankAccountNumber     String?
+  bankAccountType       String?
+  bankIfscCode          String?
+  bankBranchName        String?
+  bankUpiId             String?
+  bankAddress           String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  supplier              Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+}
+
+model SupplierMaterial {
+  id                   String   @id @default(uuid())
+  supplierId           String   @unique
+  materialsSupplied    String[]
+  qualityGradesOffered String[]
+  processingLevel      String?
+  moistureContent      Decimal? @db.Decimal(5, 2)
+  impurityLevel        Decimal? @db.Decimal(5, 2)
+  colorMix             String?
+  fiberLength          Decimal? @db.Decimal(8, 2)
+  stapleLength         Decimal? @db.Decimal(8, 2)
+  contaminationLevel   Int?
+  monthlyCapacityTons  Decimal? @db.Decimal(10, 2)
+  minimumOrderQuantity Decimal? @db.Decimal(10, 2)
+  maximumOrderQuantity Decimal? @db.Decimal(10, 2)
+  leadTimeDays         Int?
+  deliveryFrequency    String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  supplier             Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+}
+
+model SupplierPricing {
+  id                     String   @id @default(uuid())
+  supplierId             String   @unique
+  basePricePerKg         Decimal? @db.Decimal(10, 2)
+  priceBasedOnQuality    Boolean  @default(false)
+  quantitySlabs          Json?
+  seasonalPriceVariation Boolean  @default(false)
+  creditPeriodDays       Int?
+  advancePaymentPercent  Decimal? @db.Decimal(5, 2)
+  paymentMethodsAccepted String[]
+  earlyPaymentDiscount   Decimal? @db.Decimal(5, 2)
+  latePaymentPenalty     Decimal? @db.Decimal(5, 2)
+  deliveryMode           String?
+  freightChargesBearer   String?
+  deliveryAreaKm         Int?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  supplier               Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+}
+
+model SupplierPerformance {
+  id                       String    @id @default(uuid())
+  supplierId               String    @unique
+  avgQualityRating         Decimal?  @db.Decimal(3, 2)
+  rejectionRate            Decimal?  @db.Decimal(5, 2)
+  qualityConsistencyScore  Decimal?  @db.Decimal(5, 2)
+  documentationAccuracy    Decimal?  @db.Decimal(5, 2)
+  onTimeDeliveryPercent    Decimal?  @db.Decimal(5, 2)
+  avgDelayDays             Decimal?  @db.Decimal(5, 2)
+  orderFulfillmentRate     Decimal?  @db.Decimal(5, 2)
+  emergencyOrderCapability Boolean   @default(false)
+  paymentDefaultHistory    Boolean   @default(false)
+  creditUtilization        Decimal?  @db.Decimal(5, 2)
+  invoiceAccuracy          Decimal?  @db.Decimal(5, 2)
+  disputeResolutionTime    Decimal?  @db.Decimal(8, 2)
+  supplierScore            Int?
+  riskLevel                String?
+  performanceCategory      String?
+  mandatoryDocuments       Json?
+  qualityCertificates      Json?
+  legalDocuments           Json?
+  lastCommunicationDate    DateTime?
+  communicationMethod      String?
+  nextFollowUpDate         DateTime?
+  communicationNotes       String?
+  totalOrdersPlaced        Int       @default(0)
+  totalQuantitySuppliedKg  Decimal?  @db.Decimal(12, 2)
+  totalBusinessValue       Decimal?  @db.Decimal(12, 2)
+  avgOrderValue            Decimal?  @db.Decimal(12, 2)
+  lastOrderDate            DateTime?
+  lastPaymentDate          DateTime?
+  totalComplaints          Int       @default(0)
+  resolvedComplaints       Int       @default(0)
+  pendingComplaints        Int       @default(0)
+  avgResolutionTimeHours   Decimal?  @db.Decimal(8, 2)
+  strategicImportance      String?
+  purchaseVolumeCategory   String?
+  relationshipDuration     String?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+  supplier                 Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+}
+
+model SystemSettings {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
+model RawMaterial {
+  id                String            @id @default(uuid())
+  batchNo           String            @unique @db.VarChar(50)
+  supplierId        String
+  materialType      String
+  quantity          Decimal           @db.Decimal(10, 2)
+  unit              String            @default("kg")
+  costPerUnit       Decimal           @db.Decimal(10, 2)
+  totalCost         Decimal           @db.Decimal(12, 2)
+  qualityScore      Decimal           @db.Decimal(4, 2)
+  moistureContent   Decimal?          @db.Decimal(5, 2)
+  receivedDate      DateTime
+  warehouseLocation String?
+  status            RawMaterialStatus @default(IN_STOCK)
+  notes             String?
+  createdBy         String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  productionBatches ProductionBatch[]
+  supplier          Supplier          @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId])
+  @@index([batchNo])
+  @@index([status])
+}
+
+model ProductionBatch {
+  id            String            @id @default(uuid())
+  batchNumber   String            @unique
+  rawMaterialId String
+  inputQuantity Decimal           @db.Decimal(10, 2)
+  currentStage  StageName         @default(PLANNED)
+  status        BatchStatus       @default(PENDING)
+  startDate     DateTime?
+  endDate       DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  finishedGoods FinishedGood[]
+  rawMaterial   RawMaterial       @relation(fields: [rawMaterialId], references: [id])
+  stages        ProductionStage[]
+  wastageLogs   WastageLog[]
+
+  @@index([status])
+  @@index([currentStage])
+}
+
+model ProductionStage {
+  id           String          @id @default(uuid())
+  batchId      String
+  stageName    StageName
+  startTime    DateTime        @default(now())
+  endTime      DateTime?
+  operatorName String?
+  machineId    String?
+  status       String          @default("IN_PROGRESS")
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  batch        ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+}
+
+model WastageLog {
+  id        String          @id @default(uuid())
+  batchId   String
+  stage     StageName
+  quantity  Decimal         @db.Decimal(10, 2)
+  wasteType String
+  reason    String?
+  loggedAt  DateTime        @default(now())
+  userId    String?
+  batch     ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+}
+
+model FinishedGood {
+  id                String          @id @default(uuid())
+  batchId           String
+  yarnCount         String
+  producedQuantity  Decimal         @db.Decimal(10, 2)
+  qualityGrade      String?
+  packingDate       DateTime        @default(now())
+  warehouseLocation String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  batch             ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum AuthProvider {
+  EMAIL
+  GOOGLE
+}
+
+enum RawMaterialStatus {
+  IN_STOCK
+  QUALITY_CHECK
+  CONSUMED
+  RETURNED
+}
+
+enum StageName {
+  PLANNED
+  MIXING
+  CARDING
+  DRAWING
+  ROVING
+  SPINNING
+  WINDING
+  COMPLETED
+}
+
+enum BatchStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
