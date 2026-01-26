@@ -91,6 +91,7 @@ billingRouter.post('/invoices', authenticate, async (req: Request, res: Response
             })(),
             customerName: body.customerName,
             date: body.date || new Date().toISOString(),
+            billingCycle: new Date(body.date || new Date()).toLocaleDateString('default', { month: 'short', year: 'numeric' }),
             totalAmount: total,
             status: 'PENDING',
             items: body.items

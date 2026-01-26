@@ -51,15 +51,15 @@ function daysToMs(days: number) {
 }
 
 function signAccessToken(userId: string) {
-  return jwt.sign({ sub: userId }, env.JWT_ACCESS_SECRET, {
-    expiresIn: env.JWT_ACCESS_EXPIRES_IN,
+  return jwt.sign({ sub: userId }, String(env.JWT_ACCESS_SECRET), {
+    expiresIn: String(env.JWT_ACCESS_EXPIRES_IN) as any,
   });
 }
 
 function signRefreshToken(userId: string) {
   const expiresAt = new Date(Date.now() + daysToMs(env.JWT_REFRESH_EXPIRES_IN_DAYS));
-  const raw = jwt.sign({ sub: userId }, env.JWT_REFRESH_SECRET, {
-    expiresIn: `${env.JWT_REFRESH_EXPIRES_IN_DAYS}d`,
+  const raw = jwt.sign({ sub: userId }, String(env.JWT_REFRESH_SECRET), {
+    expiresIn: `${env.JWT_REFRESH_EXPIRES_IN_DAYS}d` as any,
   });
   return { raw, expiresAt };
 }
@@ -78,7 +78,7 @@ export async function login(email: string, password: string) {
     select: { id: true, passwordHash: true, status: true },
   });
 
-  if (!user || user.status !== 'ACTIVE') {
+  if (!user || user.status !== 'ACTIVE' || !user.passwordHash) {
     const err: any = new Error('Invalid credentials');
     err.status = 401;
     throw err;
