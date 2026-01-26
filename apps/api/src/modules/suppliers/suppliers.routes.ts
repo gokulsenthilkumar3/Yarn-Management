@@ -69,6 +69,7 @@ suppliersRouter.post(
         registeredState: body.registeredState || null,
         registeredPinCode: body.registeredPinCode || null,
         registeredCountry: body.registeredCountry || null,
+        registrationDate: body.registrationDate ?? undefined,
       };
       console.log('Final payload:', JSON.stringify(payload, null, 2));
       const supplier = await prisma.supplier.create({ data: payload });

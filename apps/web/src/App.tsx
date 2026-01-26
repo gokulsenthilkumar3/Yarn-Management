@@ -1,5 +1,6 @@
 import './styles.css';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import SupplierDashboard from './components/SupplierDashboard';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import InvoicePrintPage from './pages/InvoicePrintPage';
@@ -22,6 +23,7 @@ export default function App() {
     <ThemeProvider>
       <NotificationProvider>
         <Routes>
+          <Route path="/test-suppliers" element={<SupplierDashboard />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/billing/print/:id" element={<InvoicePrintPage />} />
           <Route element={<ProtectedRoute />}>
