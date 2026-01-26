@@ -3,8 +3,13 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("postgresql://postgres.jgqdnmwqwkxlgicqhqhk:[Gokulkgm@06]@aws-1-ap-south-1.pooler.supabase.com:6543/postgres")
+  directUrl = env("postgresql://postgres:[Gokulkgm@06]@db.jgqdnmwqwkxlgicqhqhk.supabase.co:5432/postgres")
+}
+
+generator client {
+  provider = "prisma-client-js"
 }
 
 model User {
