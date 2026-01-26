@@ -1,7 +1,3 @@
-generator client {
-  provider = "prisma-client-js"
-}
-
 datasource db {
   provider  = "postgresql"
   url       = env("postgresql://postgres.jgqdnmwqwkxlgicqhqhk:Gokulkgm%4006@aws-1-ap-south-1.pooler.supabase.com:6543/postgres")
