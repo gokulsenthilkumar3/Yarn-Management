@@ -26,12 +26,12 @@ finishedGoodsRouter.get('/', authenticate, async (req: Request, res: Response, n
         }
 
         // Calculate Stats
-        const totalQuantity = finishedGoods.reduce((sum, item) => sum + Number(item.producedQuantity), 0);
+        const totalQuantity = finishedGoods.reduce((sum: number, item: any) => sum + Number(item.producedQuantity), 0);
         const totalCount = finishedGoods.length;
 
         // Group by Yarn Count
         const byType: Record<string, number> = {};
-        finishedGoods.forEach(item => {
+        finishedGoods.forEach((item: any) => {
             byType[item.yarnCount] = (byType[item.yarnCount] || 0) + Number(item.producedQuantity);
         });
 
