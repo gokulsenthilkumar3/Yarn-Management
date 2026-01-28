@@ -1,35 +1,32 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
     Box,
     Button,
     Chip,
-    Paper,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
     Typography,
     IconButton,
     MenuItem,
     TextField,
-    Menu,
     Popover,
     Checkbox,
-    FormControlLabel
+    FormControlLabel,
+    Stack
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import ViewColumnIcon from '@mui/icons-material/ViewColumn';
-import SortIcon from '@mui/icons-material/Sort';
 import { useTablePreferences } from '../hooks/useTablePreferences';
 import { http } from '../lib/http';
 import RawMaterialForm from './RawMaterialForm';
 import ConfirmDeleteDialog from './ConfirmDeleteDialog';
 import { notify } from '../context/NotificationContext';
+import ResponsiveTable, { Column } from './common/ResponsiveTable';
+import FilterToolbar from './common/FilterToolbar';
+import MultiSelectFilter from './common/MultiSelectFilter';
+import BulkImportDialog from './common/BulkImportDialog';
+import DateRangePicker from './common/DateRangePicker';
 
 type RawMaterial = {
     id: string;
@@ -42,58 +39,69 @@ type RawMaterial = {
     supplier: { name: string };
     receivedDate: string;
     productionBatches: { batchNumber: string }[];
+    costPerUnit?: string;
+    moistureContent?: string;
+    warehouseLocation?: string;
+    notes?: string;
 };
 
 export default function RawMaterialList() {
     const [data, setData] = useState<RawMaterial[]>([]);
     const [loading, setLoading] = useState(true);
     const [formOpen, setFormOpen] = useState(false);
+    const [importOpen, setImportOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<RawMaterial | null>(null);
     const [deleting, setDeleting] = useState(false);
+    const [selected, setSelected] = useState<(string | number)[]>([]);
+    const [bulkDeleteConfirmationOpen, setBulkDeleteConfirmationOpen] = useState(false);
+    const [bulkDeleting, setBulkDeleting] = useState(false);
 
-    // New State for Search, Filter, Sort, Edit, Clone
+    // Search & Filter State
     const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState('All');
-    const [sortConfig, setSortConfig] = useState<{ key: keyof RawMaterial | 'supplier.name'; direction: 'asc' | 'desc' }>({ key: 'receivedDate', direction: 'desc' });
+    const [statusFilter, setStatusFilter] = useState<(string | number)[]>([]);
+    const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
     const [editing, setEditing] = useState<RawMaterial | undefined>();
     const [initialValues, setInitialValues] = useState<any | undefined>();
     const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+
+    // Pagination State
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
 
     const { visibleColumns, toggleColumn, isVisible } = useTablePreferences('raw-materials', [
         'batchNo', 'supplier', 'type', 'quantity', 'cost', 'quality', 'moisture', 'location', 'batches', 'status', 'received', 'notes', 'actions'
     ]);
 
     // Process Data
-    const processed = data
-        .filter(row => {
-            const searchLower = searchQuery.toLowerCase();
-            const matchesSearch =
-                (row.batchNo || '').toLowerCase().includes(searchLower) ||
-                (row.supplier?.name || '').toLowerCase().includes(searchLower) ||
-                (row.materialType || '').toLowerCase().includes(searchLower);
-            const matchesStatus = statusFilter === 'All' || row.status === statusFilter;
-            return matchesSearch && matchesStatus;
-        })
-        .sort((a, b) => {
-            let aVal: any = a[sortConfig.key as keyof RawMaterial] || '';
-            let bVal: any = b[sortConfig.key as keyof RawMaterial] || '';
+    const processed = useMemo(() => {
+        return data
+            .filter(row => {
+                const searchLower = searchQuery.toLowerCase();
+                const matchesSearch =
+                    (row.batchNo || '').toLowerCase().includes(searchLower) ||
+                    (row.supplier?.name || '').toLowerCase().includes(searchLower) ||
+                    (row.materialType || '').toLowerCase().includes(searchLower);
+                const matchesStatus = statusFilter.length === 0 || statusFilter.includes(row.status);
 
-            if (sortConfig.key === 'supplier.name') {
-                aVal = a.supplier?.name || '';
-                bVal = b.supplier?.name || '';
-            }
+                let matchesDate = true;
+                if (dateRange.start && dateRange.end) {
+                    const rowDate = new Date(row.receivedDate);
+                    const start = new Date(dateRange.start);
+                    const end = new Date(dateRange.end);
+                    end.setHours(23, 59, 59, 999);
+                    matchesDate = rowDate >= start && rowDate <= end;
+                }
 
-            if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-            if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-            return 0;
-        });
+                return matchesSearch && matchesStatus && matchesDate;
+            })
+            // Default sort by received date desc
+            .sort((a, b) => new Date(b.receivedDate).getTime() - new Date(a.receivedDate).getTime());
+    }, [data, searchQuery, statusFilter]);
 
-    const handleSort = (key: keyof RawMaterial | 'supplier.name') => {
-        setSortConfig({
-            key,
-            direction: sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc'
-        });
-    };
+    // Pagination Data
+    const paginatedData = useMemo(() => {
+        return processed.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+    }, [processed, page, rowsPerPage]);
 
     async function load() {
         setLoading(true);
@@ -120,84 +128,164 @@ export default function RawMaterialList() {
         } catch (err: any) {
             // Handled by global interceptor
         } finally {
-            setDeleting(false);
         }
     }
+
+    async function handleBulkDeleteClick() {
+        if (selected.length === 0) return;
+        setBulkDeleteConfirmationOpen(true);
+    }
+
+    async function handleBulkDeleteConfirm() {
+        setBulkDeleteConfirmationOpen(false);
+        setBulkDeleting(true);
+        try {
+            await Promise.all(selected.map(id => http.delete(`/raw-materials/${id}`)));
+            notify.showSuccess(`${selected.length} items deleted successfully`);
+            setSelected([]);
+            load();
+        } catch (err: any) {
+            notify.showError("Failed to delete some items");
+        } finally {
+            setBulkDeleting(false);
+        }
+    }
+
+    const columns: Column<RawMaterial>[] = [
+        { id: 'batchNo', label: 'Batch No', minWidth: 100 },
+        { id: 'supplier', label: 'Supplier', format: (_val, row) => row.supplier?.name || '-' },
+        { id: 'materialType', label: 'Type' },
+        { id: 'quantity', label: 'Quantity', format: (val, row) => `${val} ${row.unit}` },
+        { id: 'cost', label: 'Cost', format: (_val, row) => row.costPerUnit || '-' },
+        { id: 'quality', label: 'Quality', format: (_val, row) => row.qualityScore ? Number(row.qualityScore).toFixed(1) : '-' },
+        { id: 'moisture', label: 'Moisture', format: (_val, row) => row.moistureContent ? `${row.moistureContent}%` : '-' },
+        { id: 'location', label: 'Location', format: (_val, row) => row.warehouseLocation || '-' },
+        {
+            id: 'batches',
+            label: 'Prod. Batches',
+            format: (_val, row) => (
+                <Typography variant="caption">
+                    {row.productionBatches?.map(b => b.batchNumber).join(', ') || '-'}
+                </Typography>
+            )
+        },
+        {
+            id: 'status',
+            label: 'Status',
+            format: (val) => <Chip label={val} size="small" />
+        },
+        {
+            id: 'received',
+            label: 'Received',
+            format: (_val, row) => new Date(row.receivedDate).toLocaleDateString()
+        },
+        { id: 'notes', label: 'Notes', format: (_val, row) => row.notes || '-' },
+        {
+            id: 'actions',
+            label: 'Actions',
+            align: 'right',
+            format: (_val, row) => (
+                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                    <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setEditing(row);
+                            setInitialValues(undefined);
+                            setFormOpen(true);
+                        }}
+                        title="Edit"
+                    >
+                        <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                        size="small"
+                        color="info"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setEditing(undefined);
+                            setInitialValues(row);
+                            setFormOpen(true);
+                        }}
+                        title="Clone"
+                    >
+                        <ContentCopyIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                        color="error"
+                        size="small"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTarget(row);
+                        }}
+                        title="Delete"
+                    >
+                        <DeleteIcon fontSize="small" />
+                    </IconButton>
+                </Stack>
+            )
+        }
+    ];
+
+    // Filter columns based on user preferences
+    // Mapping table preference IDs to column IDs (logic from previous implementation)
+    // Previous implementation used explicit check: isVisible('batchNo') -> render cell
+    // Here we filter the columns array.
+    // Note: Column IDs in 'columns' array usually match the preference IDs.
+    // Let's verify:
+    // Prefs: 'batchNo', 'supplier', 'type'...
+    // Columns: 'batchNo', 'supplier', 'materialType'... -> 'materialType' != 'type'
+    // I need to align them.
+
+    // Aligned Columns Definition with 'id' matching useTablePreferences keys where possible, or mapping them.
+    // The previous implementation used:
+    // { id: 'batchNo', label: 'Batch No' },
+    // { id: 'supplier', label: 'Supplier' },
+    // { id: 'type', label: 'Type' },
+    // ...
+    // So I should use 'type' as id in my columns array, but access 'materialType' in format or row?
+    // ResponsiveTable uses `row[col.id]` if no format.
+    // So I should use `id: 'materialType'` but mapped to preference `type`.
+
+    // Better strategy: Use the ID that matches the row property for ResponsiveTable, and map the preference check.
+
+    const visibleTableColumns = columns.filter(col => {
+        // Map column ID to preference ID if they differ
+        let prefId = col.id as string;
+        if (col.id === 'materialType') prefId = 'type';
+        if (col.id === 'costPerUnit') prefId = 'cost'; // Wait, col.id used above is 'cost'
+        if (col.id === 'cost') prefId = 'cost';
+        if (col.id === 'qualityScore') prefId = 'quality'; // above used 'quality'
+        if (col.id === 'quality') prefId = 'quality';
+        if (col.id === 'warehouseLocation') prefId = 'location';
+        if (col.id === 'productionBatches') prefId = 'batches';
+        if (col.id === 'receivedDate') prefId = 'received';
+
+        // In my new columns definition above, I used IDs like 'cost', 'quality' which don't exist on row directly but work because I provided a format function.
+        // But ResponsiveTable tries to access row[col.id] first.
+        // If row[col.id] is undefined, it's fine if format handles it.
+
+        return isVisible(prefId);
+    });
 
     return (
         <Box sx={{ mt: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, alignItems: 'center' }}>
                 <Typography variant="h6">Raw Materials Inventory</Typography>
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                    <TextField
-                        size="small"
-                        placeholder="Search Batch, Supplier..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        InputProps={{
-                            startAdornment: <FilterListIcon sx={{ color: 'action.active', mr: 1 }} />
-                        }}
-                    />
-                    <TextField
-                        select
-                        size="small"
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        sx={{ minWidth: 120 }}
-                    >
-                        <MenuItem value="All">All Status</MenuItem>
-                        <MenuItem value="IN_STOCK">In Stock</MenuItem>
-                        <MenuItem value="USED">Used</MenuItem>
-                        <MenuItem value="DEPLETED">Depleted</MenuItem>
-                    </TextField>
-
-                    <Button
-                        variant="outlined"
-                        startIcon={<ViewColumnIcon />}
-                        onClick={(e) => setAnchorEl(e.currentTarget)}
-                        size="small"
-                        sx={{ minWidth: 'auto' }}
-                    >
-                        Cols
-                    </Button>
-                    <Popover
-                        open={Boolean(anchorEl)}
-                        anchorEl={anchorEl}
-                        onClose={() => setAnchorEl(null)}
-                        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                    >
-                        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
-                            <Typography variant="subtitle2" sx={{ mb: 1 }}>Visible Columns</Typography>
-                            {[
-                                { id: 'batchNo', label: 'Batch No' },
-                                { id: 'supplier', label: 'Supplier' },
-                                { id: 'type', label: 'Type' },
-                                { id: 'quantity', label: 'Quantity' },
-                                { id: 'cost', label: 'Cost' },
-                                { id: 'quality', label: 'Quality' },
-                                { id: 'moisture', label: 'Moisture' },
-                                { id: 'location', label: 'Location' },
-                                { id: 'batches', label: 'Prod. Batches' },
-                                { id: 'status', label: 'Status' },
-                                { id: 'received', label: 'Received' },
-                                { id: 'notes', label: 'Notes' },
-                                { id: 'actions', label: 'Actions' },
-                            ].map((col) => (
-                                <FormControlLabel
-                                    key={col.id}
-                                    control={
-                                        <Checkbox
-                                            checked={isVisible(col.id)}
-                                            onChange={() => toggleColumn(col.id)}
-                                            size="small"
-                                        />
-                                    }
-                                    label={col.label}
-                                />
-                            ))}
-                        </Box>
-                    </Popover>
-
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                    {selected.length > 0 && (
+                        <Button
+                            variant="contained"
+                            color="error"
+                            onClick={handleBulkDeleteClick}
+                            size="small"
+                            disabled={bulkDeleting}
+                        >
+                            Delete ({selected.length})
+                        </Button>
+                    )}
+                    <Button variant="outlined" onClick={() => setImportOpen(true)}>Import</Button>
                     <Button variant="contained" onClick={() => {
                         setEditing(undefined);
                         setInitialValues(undefined);
@@ -205,89 +293,162 @@ export default function RawMaterialList() {
                     }}>Add Stock</Button>
                 </Box>
             </Box>
-            <TableContainer component={Paper}>
-                <Table>
-                    <TableHead sx={{ bgcolor: '#f8fafc' }}>
-                        <TableRow>
-                            {isVisible('batchNo') && <TableCell sx={{ fontWeight: 'bold' }}>Batch No</TableCell>}
-                            {isVisible('supplier') && <TableCell sx={{ fontWeight: 'bold' }}>Supplier</TableCell>}
-                            {isVisible('type') && <TableCell sx={{ fontWeight: 'bold' }}>Type</TableCell>}
-                            {isVisible('quantity') && <TableCell sx={{ fontWeight: 'bold' }}>Quantity</TableCell>}
-                            {isVisible('cost') && <TableCell sx={{ fontWeight: 'bold' }}>Cost</TableCell>}
-                            {isVisible('quality') && <TableCell sx={{ fontWeight: 'bold' }}>Quality</TableCell>}
-                            {isVisible('moisture') && <TableCell sx={{ fontWeight: 'bold' }}>Moisture</TableCell>}
-                            {isVisible('location') && <TableCell sx={{ fontWeight: 'bold' }}>Location</TableCell>}
-                            {isVisible('batches') && <TableCell sx={{ fontWeight: 'bold' }}>Prod. Batches</TableCell>}
-                            {isVisible('status') && <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>}
-                            {isVisible('received') && <TableCell sx={{ fontWeight: 'bold' }}>Received</TableCell>}
-                            {isVisible('notes') && <TableCell sx={{ fontWeight: 'bold' }}>Notes</TableCell>}
-                            {isVisible('actions') && <TableCell align="right" sx={{ fontWeight: 'bold' }}>Actions</TableCell>}
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {loading ? <TableRow><TableCell colSpan={13} align="center">Loading...</TableCell></TableRow> :
-                            processed.length === 0 ? <TableRow><TableCell colSpan={13} align="center">No stock found</TableCell></TableRow> :
-                                processed.map((row: any) => (
-                                    <TableRow key={row.id}>
-                                        {isVisible('batchNo') && <TableCell>{row.batchNo}</TableCell>}
-                                        {isVisible('supplier') && <TableCell>{row.supplier?.name || '-'}</TableCell>}
-                                        {isVisible('type') && <TableCell>{row.materialType}</TableCell>}
-                                        {isVisible('quantity') && <TableCell>{row.quantity} {row.unit}</TableCell>}
-                                        {isVisible('cost') && <TableCell>{row.costPerUnit || '-'}</TableCell>}
-                                        {isVisible('quality') && <TableCell>{Number(row.qualityScore).toFixed(1)}</TableCell>}
-                                        {isVisible('moisture') && <TableCell>{row.moistureContent ? `${row.moistureContent}%` : '-'}</TableCell>}
-                                        {isVisible('location') && <TableCell>{row.warehouseLocation || '-'}</TableCell>}
-                                        {isVisible('batches') && (
-                                            <TableCell>
-                                                <Typography variant="caption">
-                                                    {row.productionBatches?.map((b: any) => b.batchNumber).join(', ') || '-'}
-                                                </Typography>
-                                            </TableCell>
-                                        )}
-                                        {isVisible('status') && <TableCell><Chip label={row.status} size="small" /></TableCell>}
-                                        {isVisible('received') && <TableCell>{new Date(row.receivedDate).toLocaleDateString()}</TableCell>}
-                                        {isVisible('notes') && <TableCell>{row.notes || '-'}</TableCell>}
-                                        {isVisible('actions') && (
-                                            <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                                                <IconButton
-                                                    size="small"
-                                                    color="primary"
-                                                    onClick={() => {
-                                                        setEditing(row);
-                                                        setInitialValues(undefined);
-                                                        setFormOpen(true);
-                                                    }}
-                                                    title="Edit"
-                                                >
-                                                    <EditIcon fontSize="small" />
-                                                </IconButton>
-                                                <IconButton
-                                                    size="small"
-                                                    color="info"
-                                                    onClick={() => {
-                                                        setEditing(undefined);
-                                                        setInitialValues(row);
-                                                        setFormOpen(true);
-                                                    }}
-                                                    title="Clone"
-                                                >
-                                                    <ContentCopyIcon fontSize="small" />
-                                                </IconButton>
-                                                <IconButton
-                                                    color="error"
-                                                    size="small"
-                                                    onClick={() => setDeleteTarget(row)}
-                                                    title="Delete"
-                                                >
-                                                    <DeleteIcon fontSize="small" />
-                                                </IconButton>
-                                            </TableCell>
-                                        )}
-                                    </TableRow>
-                                ))}
-                    </TableBody>
-                </Table>
-            </TableContainer>
+
+            <FilterToolbar
+                pageKey="raw-materials"
+                currentFilters={{ searchQuery, statusFilter, dateRange }}
+                onPresetLoad={(filters) => {
+                    if (filters.searchQuery !== undefined) setSearchQuery(filters.searchQuery);
+                    if (filters.statusFilter !== undefined) setStatusFilter(filters.statusFilter);
+                    if (filters.dateRange !== undefined) setDateRange(filters.dateRange);
+                }}
+                onClear={() => {
+                    setSearchQuery('');
+                    setStatusFilter([]);
+                    setDateRange({ start: '', end: '' });
+                }}
+            >
+                <TextField
+                    size="small"
+                    placeholder="Search Batch, Supplier..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    InputProps={{
+                        startAdornment: <FilterListIcon sx={{ color: 'action.active', mr: 1 }} />
+                    }}
+                    sx={{ width: 250 }}
+                />
+
+                <MultiSelectFilter
+                    label="Status"
+                    options={[
+                        { value: 'IN_STOCK', label: 'In Stock' },
+                        { value: 'USED', label: 'Used' },
+                        { value: 'DEPLETED', label: 'Depleted' },
+                    ]}
+                    selected={statusFilter}
+                    onChange={setStatusFilter}
+                />
+
+                <DateRangePicker
+                    startDate={dateRange.start}
+                    endDate={dateRange.end}
+                    onChange={(start, end) => setDateRange({ start, end })}
+                />
+
+                <Button
+                    variant="outlined"
+                    startIcon={<ViewColumnIcon />}
+                    onClick={(e) => setAnchorEl(e.currentTarget)}
+                    size="small"
+                >
+                    Cols
+                </Button>
+                <Popover
+                    open={Boolean(anchorEl)}
+                    anchorEl={anchorEl}
+                    onClose={() => setAnchorEl(null)}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                >
+                    <Box sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+                        <Typography variant="subtitle2" sx={{ mb: 1 }}>Visible Columns</Typography>
+                        {[
+                            { id: 'batchNo', label: 'Batch No' },
+                            { id: 'supplier', label: 'Supplier' },
+                            { id: 'type', label: 'Type' },
+                            { id: 'quantity', label: 'Quantity' },
+                            { id: 'cost', label: 'Cost' },
+                            { id: 'quality', label: 'Quality' },
+                            { id: 'moisture', label: 'Moisture' },
+                            { id: 'location', label: 'Location' },
+                            { id: 'batches', label: 'Prod. Batches' },
+                            { id: 'status', label: 'Status' },
+                            { id: 'received', label: 'Received' },
+                            { id: 'notes', label: 'Notes' },
+                            { id: 'actions', label: 'Actions' },
+                        ].map((col) => (
+                            <FormControlLabel
+                                key={col.id}
+                                control={
+                                    <Checkbox
+                                        checked={isVisible(col.id)}
+                                        onChange={() => toggleColumn(col.id)}
+                                        size="small"
+                                    />
+                                }
+                                label={col.label}
+                            />
+                        ))}
+                    </Box>
+                </Popover>
+            </FilterToolbar>
+
+            {/* Active Filters Summary */}
+            {(searchQuery || statusFilter.length > 0 || dateRange.start) && (
+                <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>Active Filters:</Typography>
+
+                    {searchQuery && (
+                        <Chip
+                            label={`Search: "${searchQuery}"`}
+                            onDelete={() => setSearchQuery('')}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                        />
+                    )}
+
+                    {statusFilter.map(status => (
+                        <Chip
+                            key={status}
+                            label={`Status: ${status}`}
+                            onDelete={() => setStatusFilter(statusFilter.filter(s => s !== status))}
+                            size="small"
+                            color="secondary"
+                            variant="outlined"
+                        />
+                    ))}
+
+                    {dateRange.start && (
+                        <Chip
+                            label={`Date: ${dateRange.start} - ${dateRange.end || 'Now'}`}
+                            onDelete={() => setDateRange({ start: '', end: '' })}
+                            size="small"
+                            color="info"
+                            variant="outlined"
+                        />
+                    )}
+
+                    <Button
+                        size="small"
+                        onClick={() => {
+                            setSearchQuery('');
+                            setStatusFilter([]);
+                            setDateRange({ start: '', end: '' });
+                        }}
+                        sx={{ ml: 'auto' }}
+                    >
+                        Clear All
+                    </Button>
+                </Box>
+            )}
+
+            <ResponsiveTable
+                columns={visibleTableColumns}
+                rows={paginatedData}
+                keyField="id"
+                loading={loading}
+                page={page}
+                rowsPerPage={rowsPerPage}
+                count={processed.length}
+                onPageChange={setPage}
+                onRowsPerPageChange={setRowsPerPage}
+                mobileMainField="batchNo"
+                mobileSecondaryField="supplier"
+                selectable
+                selected={selected}
+                onSelectionChange={setSelected}
+            />
 
             <RawMaterialForm
                 open={formOpen}
@@ -295,10 +456,18 @@ export default function RawMaterialList() {
                 onSave={() => {
                     setFormOpen(false);
                     load();
-                    // notify.showSuccess('Stock saved successfully'); // Handled in form now
                 }}
                 rawMaterial={editing}
                 initialValues={initialValues}
+            />
+
+            <BulkImportDialog
+                open={importOpen}
+                onClose={() => setImportOpen(false)}
+                onSuccess={load}
+                entityName="Raw Materials"
+                endpoint="/raw-materials/import"
+                templateUrl="/templates/raw_materials_template.csv"
             />
 
             <ConfirmDeleteDialog
@@ -308,6 +477,22 @@ export default function RawMaterialList() {
                 loading={deleting}
                 onClose={() => setDeleteTarget(null)}
                 onConfirm={handleDelete}
+            />
+
+            <ConfirmDeleteDialog
+                open={bulkDeleteConfirmationOpen}
+                title="Delete Raw Materials"
+                name={`${selected.length} items`}
+                description={
+                    <>
+                        Are you sure you want to delete <strong>{selected.length}</strong> selected items?
+                        <br />
+                        This action cannot be undone.
+                    </>
+                }
+                loading={bulkDeleting}
+                onConfirm={handleBulkDeleteConfirm}
+                onClose={() => setBulkDeleteConfirmationOpen(false)}
             />
         </Box>
     );

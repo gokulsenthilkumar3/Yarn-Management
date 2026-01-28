@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Box, Card, CardContent, Typography, Grid, LinearProgress, Paper } from '@mui/material';
+import { Box, Card, CardContent, Typography, Grid, LinearProgress, Paper, useTheme } from '@mui/material';
 import { http } from '../../lib/http';
 import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturing';
 import AssignmentIcon from '@mui/icons-material/Assignment';
@@ -18,6 +18,7 @@ import {
 } from 'recharts';
 
 export default function ManufacturingDashboard() {
+    const theme = useTheme();
     const [stats, setStats] = useState({
         total: 0,
         inProgress: 0,
@@ -88,16 +89,24 @@ export default function ManufacturingDashboard() {
                     {icon}
                 </Box>
                 <Box>
-                    <Typography variant="h4" fontWeight="800" sx={{ color: '#1e293b' }}>{value}</Typography>
+                    <Typography variant="h4" fontWeight="800" sx={{ color: 'text.primary' }}>{value}</Typography>
                     <Typography variant="body2" color="text.secondary" fontWeight="500">{title}</Typography>
                 </Box>
             </CardContent>
         </Card>
     );
 
+    const tooltipStyle = {
+        backgroundColor: theme.palette.background.paper,
+        border: `1px solid ${theme.palette.divider}`,
+        color: theme.palette.text.primary,
+        borderRadius: 8,
+        boxShadow: theme.shadows[3]
+    };
+
     return (
         <Box sx={{ mt: 2 }}>
-            <Typography variant="h5" sx={{ mb: 3, fontWeight: '800', color: '#1e293b' }}>Manufacturing Overview</Typography>
+            <Typography variant="h5" sx={{ mb: 3, fontWeight: '800', color: 'text.primary' }}>Manufacturing Overview</Typography>
 
             {loading && <LinearProgress sx={{ mb: 2, borderRadius: 1 }} />}
 
@@ -139,15 +148,15 @@ export default function ManufacturingDashboard() {
             <Grid container spacing={3}>
                 <Grid item xs={12} md={8}>
                     <Paper sx={{ p: 3, borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', height: 400 }}>
-                        <Typography variant="h6" sx={{ mb: 2, fontWeight: '700', color: '#334155' }}>Batches by Stage</Typography>
+                        <Typography variant="h6" sx={{ mb: 2, fontWeight: '700', color: 'text.primary' }}>Batches by Stage</Typography>
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={chartData.stageConf}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} dy={10} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.palette.divider} />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: theme.palette.text.secondary }} dy={10} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
                                 <Tooltip
-                                    cursor={{ fill: '#f1f5f9' }}
-                                    contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                    cursor={{ fill: theme.palette.action.hover }}
+                                    contentStyle={tooltipStyle}
                                 />
                                 <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40} />
                             </BarChart>
@@ -156,14 +165,14 @@ export default function ManufacturingDashboard() {
                 </Grid>
                 <Grid item xs={12} md={4}>
                     <Paper sx={{ p: 3, borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', height: 400 }}>
-                        <Typography variant="h6" sx={{ mb: 2, fontWeight: '700', color: '#334155' }}>Output Trend</Typography>
+                        <Typography variant="h6" sx={{ mb: 2, fontWeight: '700', color: 'text.primary' }}>Output Trend</Typography>
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={chartData.outputConf}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} dy={10} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.palette.divider} />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: theme.palette.text.secondary }} dy={10} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
                                 <Tooltip
-                                    contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                    contentStyle={tooltipStyle}
                                 />
                                 <Line type="monotone" dataKey="output" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
                             </LineChart>

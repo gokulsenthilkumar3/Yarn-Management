@@ -1,0 +1,3 @@
+Batch No,Supplier Name,Type,Quantity,Unit,Quality Score,Received Date,Cost,Moisture,Location,Status,Notes
+"BATCH-001","Acme Corp","Cotton 60s","500","kg","8.5","2023-10-01","4.50","7.2","Warehouse A-1","IN_STOCK","High quality"
+"BATCH-002","Global Yarns","Polyester","1200","kg","9.0","2023-10-05","3.20","1.5","Warehouse B-3","IN_STOCK","Standard"
