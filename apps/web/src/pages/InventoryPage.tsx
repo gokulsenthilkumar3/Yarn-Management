@@ -66,7 +66,7 @@ export default function InventoryPage() {
           {icon}
         </Box>
         <Box>
-          <Typography variant="h4" fontWeight="800" sx={{ color: '#1e293b' }}>{value}</Typography>
+          <Typography variant="h4" fontWeight="800" sx={{ color: 'text.primary' }}>{value}</Typography>
           <Typography variant="body2" color="text.secondary" fontWeight="500">{title}</Typography>
         </Box>
       </CardContent>
@@ -75,7 +75,7 @@ export default function InventoryPage() {
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ mb: 3, fontWeight: '800', color: '#1e293b' }}>Inventory Overview</Typography>
+      <Typography variant="h5" sx={{ mb: 3, fontWeight: '800', color: 'text.primary' }}>Inventory Overview</Typography>
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} md={4}>
@@ -103,6 +103,7 @@ export default function InventoryPage() {
           />
         </Grid>
       </Grid>
+
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)}>

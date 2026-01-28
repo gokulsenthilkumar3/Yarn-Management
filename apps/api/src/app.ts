@@ -11,6 +11,10 @@ import { rawMaterialsRouter } from './modules/raw-materials/raw-materials.routes
 import { manufacturingRouter } from './modules/manufacturing/manufacturing.routes';
 import { billingRouter } from './modules/billing/billing.routes';
 import { finishedGoodsRouter } from './modules/finished-goods/finished-goods.routes';
+import { dashboardRouter } from './modules/dashboard/dashboard.routes';
+import { notificationRouter } from './modules/notifications/notification.routes';
+import { searchRouter } from './modules/search/search.routes';
+import importRouter from './modules/import/import.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 export function createApp() {
@@ -29,12 +33,16 @@ export function createApp() {
   app.get('/health', (_req: Request, res: Response) => res.json({ ok: true }));
 
   app.use('/auth', authRouter);
+  app.use('/', importRouter);
   app.use('/users', usersRouter);
   app.use('/suppliers', suppliersRouter);
   app.use('/raw-materials', rawMaterialsRouter);
   app.use('/manufacturing', manufacturingRouter);
   app.use('/billing', billingRouter);
   app.use('/finished-goods', finishedGoodsRouter);
+  app.use('/dashboard', dashboardRouter);
+  app.use('/notifications', notificationRouter);
+  app.use('/search', searchRouter);
 
   app.use(errorHandler);
 

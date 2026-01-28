@@ -120,7 +120,7 @@ function DroppableColumn({ stage, batches, onEdit, compact }: { stage: string, b
             flex: `0 0 ${compact ? 240 : 320}px`, // Fixed width for wrap
             display: 'flex',
             flexDirection: 'column',
-            background: '#f1f5f9',
+            bgcolor: (theme) => theme.palette.mode === 'dark' ? 'background.default' : 'grey.100',
             borderRadius: 2,
             p: 1,
             height: compact ? '400px' : '600px', // Fixed height when wrapping
@@ -266,7 +266,7 @@ export default function BatchKanban() {
                             InputProps={{
                                 startAdornment: (<InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>),
                             }}
-                            sx={{ background: 'white', borderRadius: 1 }}
+                            sx={{ bgcolor: 'background.paper', borderRadius: 1 }}
                         />
                         <Button
                             variant={compactMode ? "contained" : "outlined"}

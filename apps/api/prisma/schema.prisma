@@ -24,6 +24,7 @@ model User {
   auditLogs      AuditLog[]
   refreshTokens  RefreshToken[]
   roles          UserRole[]
+  notifications  Notification[]
 }
 
 model Role {
@@ -402,4 +403,30 @@ enum BatchStatus {
   IN_PROGRESS
   COMPLETED
   CANCELLED
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, read])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  INFO
+  WARNING
+  ERROR
+  SUCCESS
+  LOW_STOCK
+  QUALITY_ALERT
+  PAYMENT_DUE
+  PRODUCTION_DELAY
 }

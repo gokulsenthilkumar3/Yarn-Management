@@ -1,39 +1,52 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
     Box,
     Button,
-    Paper,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Typography
+    Typography,
+    IconButton,
+    Stack
 } from '@mui/material';
 import { http } from '../../lib/http';
 import AddCustomerDialog from './AddCustomerDialog';
 import ConfirmDeleteDialog from '../ConfirmDeleteDialog';
 import { notify } from '../../context/NotificationContext';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { IconButton } from '@mui/material';
+import ResponsiveTable, { Column } from '../common/ResponsiveTable';
+
+type Customer = {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    gstin: string;
+};
 
 export default function CustomerList() {
-    const [customers, setCustomers] = useState<any[]>([]);
+    const [customers, setCustomers] = useState<Customer[]>([]);
+    const [loading, setLoading] = useState(true);
     const [openAdd, setOpenAdd] = useState(false);
-    const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
     const [deleting, setDeleting] = useState(false);
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
 
     async function load() {
+        setLoading(true);
         try {
             const res = await http.get('/billing/customers');
             setCustomers(res.data.customers);
         } catch (err) {
             console.error(err);
+        } finally {
+            setLoading(false);
         }
     }
 
     useEffect(() => { load(); }, []);
+
+    const paginated = useMemo(() => {
+        return customers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+    }, [customers, page, rowsPerPage]);
 
     async function handleDelete() {
         if (!deleteTarget) return;
@@ -50,6 +63,28 @@ export default function CustomerList() {
         }
     }
 
+    const columns: Column<Customer>[] = [
+        { id: 'name', label: 'Name', minWidth: 150 },
+        { id: 'email', label: 'Email', format: (val) => val || '-' },
+        { id: 'phone', label: 'Phone', format: (val) => val || '-' },
+        { id: 'gstin', label: 'GSTIN', format: (val) => val || '-' },
+        {
+            id: 'actions',
+            label: 'Actions',
+            align: 'right',
+            format: (_val, row) => (
+                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                    <IconButton color="error" size="small" onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteTarget(row);
+                    }}>
+                        <DeleteIcon fontSize="small" />
+                    </IconButton>
+                </Stack>
+            )
+        }
+    ];
+
     return (
         <Box sx={{ mt: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
@@ -57,35 +92,19 @@ export default function CustomerList() {
                 <Button variant="contained" onClick={() => setOpenAdd(true)}>Add Customer</Button>
             </Box>
 
-            <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
-                <Table>
-                    <TableHead sx={{ bgcolor: '#f8fafc' }}>
-                        <TableRow>
-                            <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
-                            <TableCell sx={{ fontWeight: 'bold' }}>Email</TableCell>
-                            <TableCell sx={{ fontWeight: 'bold' }}>Phone</TableCell>
-                            <TableCell sx={{ fontWeight: 'bold' }}>GSTIN</TableCell>
-                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>Actions</TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {customers.length === 0 ? <TableRow><TableCell colSpan={5} align="center">No customers found</TableCell></TableRow> :
-                            customers.map((c) => (
-                                <TableRow key={c.id} hover>
-                                    <TableCell>{c.name}</TableCell>
-                                    <TableCell>{c.email || '-'}</TableCell>
-                                    <TableCell>{c.phone || '-'}</TableCell>
-                                    <TableCell>{c.gstin || '-'}</TableCell>
-                                    <TableCell align="right">
-                                        <IconButton color="error" size="small" onClick={() => setDeleteTarget(c)}>
-                                            <DeleteIcon fontSize="small" />
-                                        </IconButton>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                    </TableBody>
-                </Table>
-            </TableContainer>
+            <ResponsiveTable
+                columns={columns}
+                rows={paginated}
+                keyField="id"
+                loading={loading}
+                page={page}
+                rowsPerPage={rowsPerPage}
+                count={customers.length}
+                onPageChange={setPage}
+                onRowsPerPageChange={setRowsPerPage}
+                mobileMainField="name"
+                mobileSecondaryField="email"
+            />
 
             <AddCustomerDialog
                 open={openAdd}

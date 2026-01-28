@@ -1,32 +1,33 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Button,
   Chip,
   IconButton,
-  Paper,
-  Pagination,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
+  Menu,
+  MenuItem,
+  Checkbox,
+  FormControlLabel,
+  Popover,
+  Stack
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import GetAppIcon from '@mui/icons-material/GetApp';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import ViewColumnIcon from '@mui/icons-material/ViewColumn';
 import { http } from '../lib/http';
 import { notify } from '../context/NotificationContext';
 import SupplierForm from './SupplierForm';
 import ConfirmDeleteDialog from './ConfirmDeleteDialog';
-import { Menu, MenuItem as MuiMenuItem, TableSortLabel, Checkbox, FormControlLabel, Popover } from '@mui/material';
-import ViewColumnIcon from '@mui/icons-material/ViewColumn';
 import { useTablePreferences } from '../hooks/useTablePreferences';
+import ResponsiveTable, { Column } from './common/ResponsiveTable';
+import FilterToolbar from './common/FilterToolbar';
+import MultiSelectFilter from './common/MultiSelectFilter';
+import BulkImportDialog from './common/BulkImportDialog';
 
 type Supplier = {
   id: string;
@@ -41,52 +42,50 @@ type Supplier = {
   status: string;
 };
 
-type SortConfig = {
-  key: keyof Supplier;
-  direction: 'asc' | 'desc';
-};
-
 export default function SupplierList() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<Supplier | undefined>();
   const [initialValues, setInitialValues] = useState<Omit<Supplier, 'id'> | undefined>();
-  const [page, setPage] = useState(1);
+
+  // Pagination State (0-indexed for TablePagination)
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('All');
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'asc' });
+  const [statusFilter, setStatusFilter] = useState<(string | number)[]>([]);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Supplier | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [selected, setSelected] = useState<(string | number)[]>([]);
+  const [bulkDeleteConfirmationOpen, setBulkDeleteConfirmationOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
   const { visibleColumns, toggleColumn, isVisible } = useTablePreferences('suppliers', ['name', 'email', 'phone', 'gstin', 'terms', 'rating', 'status', 'actions']);
 
-  const rowsPerPage = 10;
-
   // Filter and Sort suppliers
-  const processed = suppliers
-    .filter((s) => {
-      const searchLower = searchQuery.toLowerCase();
-      const matchesSearch =
-        s.name.toLowerCase().includes(searchLower) ||
-        (s.email && s.email.toLowerCase().includes(searchLower)) ||
-        (s.phone && s.phone.includes(searchQuery)) ||
-        (s.gstin && s.gstin.toLowerCase().includes(searchLower)) ||
-        (s.address && s.address.toLowerCase().includes(searchLower));
+  const processed = useMemo(() => {
+    return suppliers
+      .filter((s) => {
+        const searchLower = searchQuery.toLowerCase();
+        const matchesSearch =
+          s.name.toLowerCase().includes(searchLower) ||
+          (s.email && s.email.toLowerCase().includes(searchLower)) ||
+          (s.phone && s.phone.includes(searchQuery)) ||
+          (s.gstin && s.gstin.toLowerCase().includes(searchLower)) ||
+          (s.address && s.address.toLowerCase().includes(searchLower));
 
-      const matchesStatus = statusFilter === 'All' || s.status === statusFilter;
-      return matchesSearch && matchesStatus;
-    })
-    .sort((a, b) => {
-      const aVal = String(a[sortConfig.key] || '').toLowerCase();
-      const bVal = String(b[sortConfig.key] || '').toLowerCase();
-      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-      return 0;
-    });
+        const matchesStatus = statusFilter.length === 0 || statusFilter.includes(s.status);
+        return matchesSearch && matchesStatus;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [suppliers, searchQuery, statusFilter]);
 
-  const startIndex = (page - 1) * rowsPerPage;
-  const paginated = processed.slice(startIndex, startIndex + rowsPerPage);
+  const paginated = useMemo(() => {
+    return processed.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  }, [processed, page, rowsPerPage]);
 
   async function load() {
     setLoading(true);
@@ -102,11 +101,6 @@ export default function SupplierList() {
 
   useEffect(() => { load(); }, []);
 
-  const handleRequestSort = (key: keyof Supplier) => {
-    const isAsc = sortConfig.key === key && sortConfig.direction === 'asc';
-    setSortConfig({ key, direction: isAsc ? 'desc' : 'asc' });
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Active': return 'success';
@@ -120,13 +114,6 @@ export default function SupplierList() {
   function handleOpenForm(supplier?: Supplier) {
     setEditing(supplier);
     setInitialValues(undefined);
-    setFormOpen(true);
-  }
-
-  function handleClone(supplier: Supplier) {
-    const { id, ...rest } = supplier;
-    setEditing(undefined);
-    setInitialValues({ ...rest });
     setFormOpen(true);
   }
 
@@ -148,6 +135,26 @@ export default function SupplierList() {
       notify.showError(`Could not delete supplier "${deleteTarget.name}"`);
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function handleBulkDeleteClick() {
+    if (selected.length === 0) return;
+    setBulkDeleteConfirmationOpen(true);
+  }
+
+  async function handleBulkDeleteConfirm() {
+    setBulkDeleteConfirmationOpen(false);
+    setBulkDeleting(true);
+    try {
+      await Promise.all(selected.map(id => http.delete(`/suppliers/${id}`)));
+      notify.showSuccess(`${selected.length} suppliers deleted successfully`);
+      setSelected([]);
+      load();
+    } catch (err: any) {
+      notify.showError("Failed to delete some suppliers");
+    } finally {
+      setBulkDeleting(false);
     }
   }
 
@@ -178,79 +185,102 @@ export default function SupplierList() {
     }
   }
 
+  const columns: Column<Supplier>[] = [
+    { id: 'name', label: 'Name', minWidth: 150 },
+    { id: 'email', label: 'Email', format: (_val, row) => row.email || '-' },
+    { id: 'phone', label: 'Phone', format: (_val, row) => row.phone || '-' },
+    { id: 'address', label: 'Address', format: (_val, row) => row.address || '-' },
+    { id: 'gstin', label: 'GSTIN', format: (_val, row) => row.gstin || '-' },
+    { id: 'paymentTerms', label: 'Terms', format: (_val, row) => row.paymentTerms || '-' },
+    { id: 'rating', label: 'Rating', format: (_val, row) => row.rating ?? '-' },
+    { id: 'notes', label: 'Notes', format: (_val, row) => row.notes || '-' },
+    {
+      id: 'status',
+      label: 'Status',
+      format: (val) => (
+        <Chip
+          label={val}
+          size="small"
+          color={getStatusColor(val) as any}
+          sx={{ height: 22, fontSize: '0.75rem', fontWeight: 600, minWidth: 80 }}
+        />
+      )
+    },
+    {
+      id: 'actions',
+      label: 'Actions',
+      align: 'right',
+      format: (_val, row) => (
+        <Stack direction="row" spacing={1} justifyContent="flex-end">
+          <IconButton onClick={(e) => { e.stopPropagation(); handleOpenForm(row); }} size="small" title="Edit">
+            <EditIcon fontSize="small" />
+          </IconButton>
+          <IconButton
+            size="small"
+            color="info"
+            onClick={(e) => {
+              e.stopPropagation();
+              const { id, ...rest } = row;
+              setEditing(undefined);
+              setInitialValues(rest);
+              setFormOpen(true);
+            }}
+            title="Clone"
+          >
+            <ContentCopyIcon fontSize="small" />
+          </IconButton>
+          <IconButton
+            size="small"
+            color="error"
+            onClick={(e) => {
+              e.stopPropagation();
+              setDeleteTarget(row);
+            }}
+            title="Delete"
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Stack>
+      )
+    }
+  ];
+
+  const visibleTableColumns = columns.filter(col => {
+    let prefId = col.id as string;
+    if (col.id === 'paymentTerms') prefId = 'terms';
+    return isVisible(prefId);
+  });
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h6">Suppliers</Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <TextField
-            size="small"
-            placeholder="Search suppliers..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: <FilterListIcon sx={{ color: 'action.active', mr: 1 }} />,
-            }}
-          />
-          <TextField
-            select
-            size="small"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            sx={{ minWidth: 120 }}
-          >
-            <MuiMenuItem value="All">All Status</MuiMenuItem>
-            <MuiMenuItem value="Active">Active</MuiMenuItem>
-            <MuiMenuItem value="On Hold">On Hold</MuiMenuItem>
-            <MuiMenuItem value="Blacklisted">Blacklisted</MuiMenuItem>
-            <MuiMenuItem value="Inactive">Inactive</MuiMenuItem>
-          </TextField>
-
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {selected.length > 0 && (
+            <Button
+              variant="contained"
+              color="error"
+              onClick={handleBulkDeleteClick}
+              size="small"
+              disabled={bulkDeleting}
+            >
+              Delete ({selected.length})
+            </Button>
+          )}
           <Button
             variant="outlined"
-            startIcon={<ViewColumnIcon />}
-            onClick={(e) => setAnchorEl(e.currentTarget)}
+            startIcon={<GetAppIcon />}
+            onClick={exportToCsv}
             size="small"
           >
-            Columns
-          </Button>
-          <Popover
-            open={Boolean(anchorEl)}
-            anchorEl={anchorEl}
-            onClose={() => setAnchorEl(null)}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-          >
-            <Box sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Visible Columns</Typography>
-              {[
-                { id: 'name', label: 'Name' },
-                { id: 'email', label: 'Email' },
-                { id: 'phone', label: 'Phone' },
-                { id: 'address', label: 'Address' },
-                { id: 'gstin', label: 'GSTIN' },
-                { id: 'terms', label: 'Terms' },
-                { id: 'rating', label: 'Rating' },
-                { id: 'notes', label: 'Notes' },
-                { id: 'status', label: 'Status' },
-                { id: 'actions', label: 'Actions' },
-              ].map((col) => (
-                <FormControlLabel
-                  key={col.id}
-                  control={
-                    <Checkbox
-                      checked={isVisible(col.id)}
-                      onChange={() => toggleColumn(col.id)}
-                      size="small"
-                    />
-                  }
-                  label={col.label}
-                />
-              ))}
-            </Box>
-          </Popover>
-
-          <Button variant="outlined" startIcon={<GetAppIcon />} onClick={exportToCsv} size="small">
             Export
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={() => setImportOpen(true)}
+            size="small"
+          >
+            Import
           </Button>
           <Button variant="contained" onClick={() => {
             setEditing(undefined);
@@ -262,135 +292,102 @@ export default function SupplierList() {
         </Box>
       </Box>
 
-      <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: 'none', border: '1px solid #e2e8f0' }}>
-        <Table size="small">
-          <TableHead sx={{ bgcolor: '#f8fafc' }}>
-            <TableRow>
-              {isVisible('name') && (
-                <TableCell>
-                  <TableSortLabel
-                    active={sortConfig.key === 'name'}
-                    direction={sortConfig.direction}
-                    onClick={() => handleRequestSort('name')}
-                    sx={{ fontWeight: 'bold' }}
-                  >
-                    Name
-                  </TableSortLabel>
-                </TableCell>
-              )}
-              {isVisible('email') && <TableCell sx={{ fontWeight: 'bold' }}>Email</TableCell>}
-              {isVisible('phone') && <TableCell sx={{ fontWeight: 'bold' }}>Phone</TableCell>}
-              {isVisible('address') && <TableCell sx={{ fontWeight: 'bold' }}>Address</TableCell>}
-              {isVisible('gstin') && (
-                <TableCell>
-                  <TableSortLabel
-                    active={sortConfig.key === 'gstin'}
-                    direction={sortConfig.direction}
-                    onClick={() => handleRequestSort('gstin')}
-                    sx={{ fontWeight: 'bold' }}
-                  >
-                    GSTIN
-                  </TableSortLabel>
-                </TableCell>
-              )}
-              {isVisible('terms') && <TableCell sx={{ fontWeight: 'bold' }}>Terms</TableCell>}
-              {isVisible('rating') && (
-                <TableCell>
-                  <TableSortLabel
-                    active={sortConfig.key === 'rating'}
-                    direction={sortConfig.direction}
-                    onClick={() => handleRequestSort('rating')}
-                    sx={{ fontWeight: 'bold' }}
-                  >
-                    Rating
-                  </TableSortLabel>
-                </TableCell>
-              )}
-              {isVisible('notes') && <TableCell sx={{ fontWeight: 'bold' }}>Notes</TableCell>}
-              {isVisible('status') && (
-                <TableCell>
-                  <TableSortLabel
-                    active={sortConfig.key === 'status'}
-                    direction={sortConfig.direction}
-                    onClick={() => handleRequestSort('status')}
-                    sx={{ fontWeight: 'bold' }}
-                  >
-                    Status
-                  </TableSortLabel>
-                </TableCell>
-              )}
-              {isVisible('actions') && <TableCell align="right" sx={{ fontWeight: 'bold' }}>Actions</TableCell>}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={10} align="center">Loading…</TableCell></TableRow>
-            ) : paginated.length === 0 ? (
-              <TableRow><TableCell colSpan={10} align="center">No results</TableCell></TableRow>
-            ) : (
-              paginated.map((row) => (
-                <TableRow key={row.id} hover>
-                  {isVisible('name') && <TableCell sx={{ fontWeight: 500 }}>{row.name}</TableCell>}
-                  {isVisible('email') && <TableCell>{row.email || '-'}</TableCell>}
-                  {isVisible('phone') && <TableCell>{row.phone || '-'}</TableCell>}
-                  {isVisible('address') && <TableCell>{row.address || '-'}</TableCell>}
-                  {isVisible('gstin') && <TableCell>{row.gstin || '-'}</TableCell>}
-                  {isVisible('terms') && <TableCell>{row.paymentTerms || '-'}</TableCell>}
-                  {isVisible('rating') && <TableCell>{row.rating ?? '-'}</TableCell>}
-                  {isVisible('notes') && <TableCell>{row.notes || '-'}</TableCell>}
-                  {isVisible('status') && (
-                    <TableCell>
-                      <Chip
-                        label={row.status}
-                        size="small"
-                        color={getStatusColor(row.status) as any}
-                        sx={{ height: 22, fontSize: '0.75rem', fontWeight: 600, minWidth: 80 }}
-                      />
-                    </TableCell>
-                  )}
-                  {isVisible('actions') && (
-                    <TableCell align="right">
-                      <IconButton onClick={() => handleOpenForm(row)} size="small" title="Edit"><EditIcon fontSize="small" /></IconButton>
-                      <IconButton
-                        size="small"
-                        color="info"
-                        onClick={() => {
-                          const { id, ...rest } = row;
-                          setEditing(undefined);
-                          setInitialValues(rest);
-                          setFormOpen(true);
-                        }}
-                        title="Clone"
-                      >
-                        <ContentCopyIcon />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => {
-                          setDeleteTarget(row);
-                        }}
-                        title="Delete"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-        <Pagination
-          count={Math.ceil(processed.length / rowsPerPage)}
-          page={page}
-          onChange={(_, p) => setPage(p)}
-          color="primary"
+      <FilterToolbar
+        pageKey="suppliers"
+        currentFilters={{ searchQuery, statusFilter }}
+        onPresetLoad={(filters) => {
+          if (filters.searchQuery !== undefined) setSearchQuery(filters.searchQuery);
+          if (filters.statusFilter !== undefined) setStatusFilter(filters.statusFilter);
+        }}
+        onClear={() => {
+          setSearchQuery('');
+          setStatusFilter([]);
+        }}
+      >
+        <TextField
+          size="small"
+          placeholder="Search suppliers..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          InputProps={{
+            startAdornment: <FilterListIcon sx={{ color: 'action.active', mr: 1 }} />,
+          }}
+          sx={{ width: 250 }}
         />
-      </Box>
+
+        <MultiSelectFilter
+          label="Status"
+          options={[
+            { value: 'Active', label: 'Active' },
+            { value: 'Inactive', label: 'Inactive' },
+            { value: 'On Hold', label: 'On Hold' },
+            { value: 'Blacklisted', label: 'Blacklisted' },
+          ]}
+          selected={statusFilter}
+          onChange={setStatusFilter}
+        />
+
+        <Button
+          variant="outlined"
+          startIcon={<ViewColumnIcon />}
+          onClick={(e) => setAnchorEl(e.currentTarget)}
+          size="small"
+        >
+          Columns
+        </Button>
+        <Popover
+          open={Boolean(anchorEl)}
+          anchorEl={anchorEl}
+          onClose={() => setAnchorEl(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        >
+          <Box sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>Visible Columns</Typography>
+            {[
+              { id: 'name', label: 'Name' },
+              { id: 'email', label: 'Email' },
+              { id: 'phone', label: 'Phone' },
+              { id: 'address', label: 'Address' },
+              { id: 'gstin', label: 'GSTIN' },
+              { id: 'terms', label: 'Terms' },
+              { id: 'rating', label: 'Rating' },
+              { id: 'notes', label: 'Notes' },
+              { id: 'status', label: 'Status' },
+              { id: 'actions', label: 'Actions' },
+            ].map((col) => (
+              <FormControlLabel
+                key={col.id}
+                control={
+                  <Checkbox
+                    checked={isVisible(col.id)}
+                    onChange={() => toggleColumn(col.id)}
+                    size="small"
+                  />
+                }
+                label={col.label}
+              />
+            ))}
+          </Box>
+        </Popover>
+      </FilterToolbar>
+
+      <ResponsiveTable
+        columns={visibleTableColumns}
+        rows={paginated}
+        keyField="id"
+        loading={loading}
+        page={page}
+        rowsPerPage={rowsPerPage}
+        count={processed.length}
+        onPageChange={setPage}
+        onRowsPerPageChange={setRowsPerPage}
+
+        mobileMainField="name"
+        mobileSecondaryField="email"
+        selectable
+        selected={selected}
+        onSelectionChange={setSelected}
+      />
 
       <SupplierForm
         open={formOpen}
@@ -400,6 +397,15 @@ export default function SupplierList() {
         initialValues={initialValues}
       />
 
+      <BulkImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onSuccess={load}
+        entityName="Suppliers"
+        endpoint="/suppliers/import"
+        templateUrl="/templates/suppliers_template.csv"
+      />
+
       <ConfirmDeleteDialog
         open={!!deleteTarget}
         title="Supplier"
@@ -407,6 +413,22 @@ export default function SupplierList() {
         loading={deleting}
         onConfirm={handleDelete}
         onClose={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmDeleteDialog
+        open={bulkDeleteConfirmationOpen}
+        title="Delete Suppliers"
+        name={`${selected.length} suppliers`}
+        description={
+          <>
+            Are you sure you want to delete <strong>{selected.length}</strong> selected suppliers?
+            <br />
+            This action cannot be undone.
+          </>
+        }
+        loading={bulkDeleting}
+        onConfirm={handleBulkDeleteConfirm}
+        onClose={() => setBulkDeleteConfirmationOpen(false)}
       />
     </Box>
   );
