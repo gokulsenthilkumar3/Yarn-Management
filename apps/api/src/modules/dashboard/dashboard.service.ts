@@ -124,7 +124,7 @@ export async function getInventoryHealth() {
         select: { totalCost: true },
     });
 
-    const totalValue = allMaterials.reduce((sum, item) => sum + Number(item.totalCost), 0);
+    const totalValue = allMaterials.reduce((sum: number, item: any) => sum + Number(item.totalCost), 0);
 
     // Stock turnover ratio (placeholder calculation)
     const turnoverRatio = 4.5; // Replace with actual calculation
@@ -205,14 +205,14 @@ export async function getProductionEfficiency(days: number = 7) {
     const plannedByDate: Record<string, number> = {};
     const actualByDate: Record<string, number> = {};
 
-    allBatches.forEach((b) => {
+    allBatches.forEach((b: any) => {
         if (b.startDate) {
             const dateStr = b.startDate.toISOString().split('T')[0];
             plannedByDate[dateStr] = (plannedByDate[dateStr] || 0) + 1;
         }
     });
 
-    completedBatches.forEach((b) => {
+    completedBatches.forEach((b: any) => {
         if (b.endDate) {
             const dateStr = b.endDate.toISOString().split('T')[0];
             actualByDate[dateStr] = (actualByDate[dateStr] || 0) + 1;
@@ -286,7 +286,7 @@ export async function getWastageAnalysis() {
             type: t.wasteType,
             quantity: Number(t._sum.quantity || 0).toFixed(2),
         })),
-        trends: trends.map((t) => ({
+        trends: trends.map((t: any) => ({
             date: t.loggedAt.toISOString().split('T')[0],
             quantity: Number(t.quantity).toFixed(2),
         })),
@@ -304,8 +304,8 @@ export async function getQualityGradeDistribution() {
     });
 
     // Calculate totals for percentages
-    const totalCount = gradeDistribution.reduce((sum, g) => sum + g._count, 0);
-    const totalQuantity = gradeDistribution.reduce((sum, g) => sum + Number(g._sum.producedQuantity || 0), 0);
+    const totalCount = gradeDistribution.reduce((sum: number, g: any) => sum + g._count, 0);
+    const totalQuantity = gradeDistribution.reduce((sum: number, g: any) => sum + Number(g._sum.producedQuantity || 0), 0);
 
     return {
         distribution: gradeDistribution.map((g: any) => ({
@@ -318,7 +318,7 @@ export async function getQualityGradeDistribution() {
             totalBatches: totalCount,
             totalQuantity: totalQuantity.toFixed(2),
             gradeAPercentage: totalCount > 0
-                ? Math.round((gradeDistribution.find(g => g.qualityGrade === 'A')?._count || 0) / totalCount * 100)
+                ? Math.round((gradeDistribution.find((g: any) => g.qualityGrade === 'A')?._count || 0) / totalCount * 100)
                 : 0,
         },
     };
@@ -344,7 +344,7 @@ export async function getDefectRateTrends(days: number = 30) {
     // Group by date in memory
     const byDate: Record<string, { total: number; count: number }> = {};
 
-    materials.forEach((m) => {
+    materials.forEach((m: any) => {
         const dateStr = m.receivedDate.toISOString().split('T')[0];
         if (!byDate[dateStr]) {
             byDate[dateStr] = { total: 0, count: 0 };
@@ -423,7 +423,7 @@ export async function getQualityScoreHeatmap() {
     }
 
     // Process materials
-    materials.forEach((m) => {
+    materials.forEach((m: any) => {
         const monthLabel = m.receivedDate.toLocaleDateString('default', { month: 'short', year: '2-digit' });
 
         if (!heatmapData[m.materialType]) {
@@ -494,7 +494,7 @@ export async function getRevenueVsCostAnalysis(months: number = 6) {
     const costByMonth: Record<string, { cost: number; qty: number }> = {};
     const productionByMonth: Record<string, number> = {};
 
-    materials.forEach((m) => {
+    materials.forEach((m: any) => {
         const monthLabel = m.receivedDate.toLocaleDateString('default', { month: 'short', year: '2-digit' });
         if (!costByMonth[monthLabel]) {
             costByMonth[monthLabel] = { cost: 0, qty: 0 };
@@ -503,7 +503,7 @@ export async function getRevenueVsCostAnalysis(months: number = 6) {
         costByMonth[monthLabel].qty += Number(m.quantity);
     });
 
-    finishedGoods.forEach((fg) => {
+    finishedGoods.forEach((fg: any) => {
         const monthLabel = fg.packingDate.toLocaleDateString('default', { month: 'short', year: '2-digit' });
         productionByMonth[monthLabel] = (productionByMonth[monthLabel] || 0) + Number(fg.producedQuantity);
     });
@@ -530,8 +530,8 @@ export async function getRevenueVsCostAnalysis(months: number = 6) {
     }
 
     // Calculate summary stats
-    const totalRevenue = data.reduce((sum, d) => sum + d.revenue, 0);
-    const totalCost = data.reduce((sum, d) => sum + d.cost, 0);
+    const totalRevenue = data.reduce((sum: number, d: any) => sum + d.revenue, 0);
+    const totalCost = data.reduce((sum: number, d: any) => sum + d.cost, 0);
     const totalProfit = totalRevenue - totalCost;
     const avgMargin = totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 100) : 0;
 
@@ -568,7 +568,7 @@ export async function getProfitMarginTrends(months: number = 12) {
     // Group by month in memory
     const dataByMonth: Record<string, { cost: number; qty: number; produced: number }> = {};
 
-    materials.forEach((m) => {
+    materials.forEach((m: any) => {
         const monthLabel = m.receivedDate.toLocaleDateString('default', { month: 'short', year: '2-digit' });
         if (!dataByMonth[monthLabel]) {
             dataByMonth[monthLabel] = { cost: 0, qty: 0, produced: 0 };
@@ -577,7 +577,7 @@ export async function getProfitMarginTrends(months: number = 12) {
         dataByMonth[monthLabel].qty += Number(m.quantity);
     });
 
-    finishedGoods.forEach((fg) => {
+    finishedGoods.forEach((fg: any) => {
         const monthLabel = fg.packingDate.toLocaleDateString('default', { month: 'short', year: '2-digit' });
         if (!dataByMonth[monthLabel]) {
             dataByMonth[monthLabel] = { cost: 0, qty: 0, produced: 0 };
