@@ -36,7 +36,7 @@ export async function globalSearch(query: string, limit: number = 20): Promise<S
         });
 
         results.push(
-            ...suppliers.map((s) => ({
+            ...suppliers.map((s: any) => ({
                 id: s.id,
                 type: 'supplier' as const,
                 title: s.name,
@@ -65,7 +65,7 @@ export async function globalSearch(query: string, limit: number = 20): Promise<S
         });
 
         results.push(
-            ...rawMaterials.map((m) => ({
+            ...rawMaterials.map((m: any) => ({
                 id: m.id,
                 type: 'raw_material' as const,
                 title: `${m.materialType} (${m.batchNo})`,
@@ -89,7 +89,7 @@ export async function globalSearch(query: string, limit: number = 20): Promise<S
         });
 
         results.push(
-            ...batches.map((b) => ({
+            ...batches.map((b: any) => ({
                 id: b.id,
                 type: 'batch' as const,
                 title: `Batch ${b.batchNumber}`,
@@ -112,7 +112,7 @@ export async function globalSearch(query: string, limit: number = 20): Promise<S
         });
 
         results.push(
-            ...finishedGoods.map((fg) => ({
+            ...finishedGoods.map((fg: any) => ({
                 id: fg.id,
                 type: 'finished_good' as const,
                 title: `Finished: ${fg.yarnCount}`,

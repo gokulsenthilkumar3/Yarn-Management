@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import * as XLSX from 'xlsx';
-import prisma from '../../lib/prisma';
+import { prisma } from '../../prisma/client';
 
 export const handleSupplierImport = async (req: Request, res: Response) => {
     try {
