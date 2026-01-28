@@ -8,6 +8,7 @@
     "dev:api": "npm -w @yarn/api run dev",
     "dev:web": "npm -w @yarn/web run dev",
     "build:api": "npm -w @yarn/api run build",
-    "build:web": "npm -w @yarn/web run build"
+    "build:web": "npm -w @yarn/web run build",
+    "prisma:generate": "npm -w @yarn/api run prisma:generate"
   }
 }
