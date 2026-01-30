@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { GoogleLogin } from '@react-oauth/google';
+
 import { Box, Button, Container, TextField, Typography } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { http } from '../lib/http';
@@ -63,28 +63,7 @@ export default function LoginPage() {
             {loading ? 'Signing in…' : 'Sign in'}
           </Button>
 
-          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-            <GoogleLogin
-              onSuccess={async (credentialResponse) => {
-                try {
-                  setLoading(true);
-                  const res = await http.post('/auth/google', {
-                    idToken: credentialResponse.credential,
-                  });
-                  const token = res.data?.accessToken as string;
-                  setAccessToken(token);
-                  navigate(from, { replace: true });
-                } catch (err: any) {
-                  setError('Google Login Failed');
-                } finally {
-                  setLoading(false);
-                }
-              }}
-              onError={() => {
-                setError('Google Login Failed');
-              }}
-            />
-          </Box>
+
         </Box>
       </Box>
     </Container>
