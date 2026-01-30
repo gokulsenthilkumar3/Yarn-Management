@@ -44,6 +44,8 @@ const navItems: NavItem[] = [
   { label: 'Optimization', to: '/warehouse/optimization' },
   { label: 'Reconciliation', to: '/warehouse/reconciliation' },
   { label: 'Billing', to: '/billing' },
+  { label: 'Accounts Receivable', to: '/finance/ar' },
+  { label: 'Accounts Payable', to: '/finance/ap' },
   { label: 'Reports', to: '/reports' },
   { label: 'Users', to: '/users' },
   { label: 'Settings', to: '/settings' },

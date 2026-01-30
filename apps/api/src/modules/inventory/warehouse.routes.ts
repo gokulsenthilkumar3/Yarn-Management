@@ -213,7 +213,7 @@ router.get('/analysis/aging', authenticate, async (req: Request, res: Response) 
         const now = new Date();
         const aging: any = { '0-30': 0, '31-60': 0, '61-90': 0, '90+': 0 };
 
-        rawMaterials.forEach(rm => {
+        rawMaterials.forEach((rm: any) => {
             const days = Math.floor((now.getTime() - new Date(rm.receivedDate).getTime()) / (1000 * 3600 * 24));
             const qty = Number(rm.quantity);
             if (days <= 30) aging['0-30'] += qty;

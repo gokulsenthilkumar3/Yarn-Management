@@ -394,11 +394,21 @@ async function main() {
     if (!existing) {
       await prisma.invoice.create({
         data: {
-          ...inv,
           invoiceNumber: `INV-${Math.floor(1000 + Math.random() * 9000)}`,
+          customerName: inv.customerName,
+          totalAmount: inv.totalAmount,
+          status: inv.status as any,
           date: new Date(),
           taxAmount: Number(inv.totalAmount) * 0.18,
-          billingCycle: 'Jan 2026'
+          billingCycle: 'Jan 2026',
+          items: {
+            create: inv.items.create.map((item: any) => ({
+              description: item.description,
+              quantity: item.quantity,
+              unitPrice: item.price,
+              totalPrice: item.quantity * item.price
+            }))
+          }
         }
       });
     }

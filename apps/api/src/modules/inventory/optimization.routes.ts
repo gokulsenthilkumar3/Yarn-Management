@@ -61,13 +61,13 @@ router.get('/analysis', async (req, res) => {
         });
 
         const stockLevels: Record<string, number> = {};
-        rawMaterials.forEach((m) => {
+        rawMaterials.forEach((m: any) => {
             stockLevels[m.materialType] = (stockLevels[m.materialType] || 0) + Number(m.quantity);
         });
 
         // 2. Get optimization settings
         const settings = await prisma.inventoryOptimization.findMany();
-        const settingsMap = new Map(settings.map(s => [s.materialType, s]));
+        const settingsMap = new Map(settings.map((s: any) => [s.materialType, s]));
 
         // 3. Identify Reorder Alerts
         const alerts = [];
@@ -84,18 +84,18 @@ router.get('/analysis', async (req, res) => {
         }
 
         // 4. ABC Analysis (Basic version based on current stock value)
-        const materialValues = rawMaterials.map(m => ({
+        const materialValues = rawMaterials.map((m: any) => ({
             materialType: m.materialType,
             value: Number(m.quantity) * Number(m.costPerUnit)
         }));
 
         const valuePerType: Record<string, number> = {};
-        materialValues.forEach(v => {
+        materialValues.forEach((v: any) => {
             valuePerType[v.materialType] = (valuePerType[v.materialType] || 0) + v.value;
         });
 
         const sortedTypes = Object.entries(valuePerType).sort((a, b) => b[1] - a[1]);
-        const totalValue = sortedTypes.reduce((acc, curr) => acc + curr[1], 0);
+        const totalValue = sortedTypes.reduce((acc: number, curr: any) => acc + curr[1], 0);
 
         let cumulativeValue = 0;
         const abcAnalysis = sortedTypes.map(([materialType, value]) => {
@@ -112,7 +112,7 @@ router.get('/analysis', async (req, res) => {
         const ninetyDaysAgo = new Date();
         ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-        const deadStock = rawMaterials.filter(m => new Date(m.receivedDate) < ninetyDaysAgo);
+        const deadStock = rawMaterials.filter((m: any) => new Date(m.receivedDate) < ninetyDaysAgo);
 
         // 6. turnover ratio (Placeholder for now, requires consumption history)
         const turnoverRatio = 0.5; // Dummy value
@@ -121,7 +121,7 @@ router.get('/analysis', async (req, res) => {
             alerts,
             abcAnalysis,
             deadStockCount: deadStock.length,
-            deadStockValue: deadStock.reduce((acc, curr) => acc + (Number(curr.quantity) * Number(curr.costPerUnit)), 0),
+            deadStockValue: deadStock.reduce((acc: number, curr: any) => acc + (Number(curr.quantity) * Number(curr.costPerUnit)), 0),
             turnoverRatio
         });
     } catch (error) {
