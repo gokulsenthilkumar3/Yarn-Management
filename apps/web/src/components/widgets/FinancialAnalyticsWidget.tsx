@@ -18,6 +18,7 @@ import {
     Area,
     ComposedChart,
     Line,
+    LineChart,
     PieChart,
     Pie,
     Cell,

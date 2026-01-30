@@ -12,7 +12,8 @@ finishedGoodsRouter.get('/', authenticate, async (req: Request, res: Response, n
             include: {
                 batch: {
                     select: { batchNumber: true, rawMaterial: { select: { materialType: true } } }
-                }
+                },
+                warehouseLocation: { include: { warehouse: { select: { name: true } } } }
             },
             orderBy: { createdAt: 'desc' },
         });

@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, InspectionEntity, InspectionStatus, InspectionResult, DefectSeverity, ActionStatus } from '@prisma/client';
 import { env } from '../src/config/env';
 
 const prisma = new PrismaClient();
@@ -126,12 +126,12 @@ async function main() {
           batchNo,
           supplierId: supplier.id,
           materialType: materialTypes[i % materialTypes.length],
-          quantity: qty,
-          costPerUnit: price,
-          totalCost: qty * price,
-          qualityScore: 8 + Math.random() * 2,
+          quantity: qty.toFixed(2),
+          costPerUnit: price.toFixed(2),
+          totalCost: (qty * price).toFixed(2),
+          qualityScore: (8 + Math.random() * 2).toFixed(2),
           receivedDate: getDate(monthsAgo),
-          warehouseLocation: locations[i % locations.length],
+          legacyLocation: locations[i % locations.length],
           status: 'IN_STOCK',
         }
       });
@@ -183,13 +183,224 @@ async function main() {
           data: {
             batchId: batch.id,
             yarnCount: ['30s', '40s', '60s', '80s'][i % 4],
-            producedQuantity: Number(batch.inputQuantity) * 0.9, // 90% yield
+            producedQuantity: (Number(batch.inputQuantity) * 0.9).toFixed(2), // 90% yield
             qualityGrade: i % 5 === 0 ? 'B' : 'A',
             packingDate: new Date(),
-            warehouseLocation: 'FG Store'
+            legacyLocation: 'FG Store'
           }
         });
       }
+    }
+  }
+
+  // 5. Quality Control Data
+  console.log('--- Seeding Quality Control Data ---');
+
+  // 5.1 Inspection Templates
+  const templatesData = [
+    {
+      name: 'Raw Material Incoming Inspection',
+      description: 'Standard inspection for incoming raw materials',
+      entityType: 'RAW_MATERIAL',
+      checklistItems: [
+        { name: 'Visual Inspection', description: 'Check for visible defects, contamination', required: true },
+        { name: 'Weight Verification', description: 'Verify weight matches documentation', required: true },
+        { name: 'Color Consistency', description: 'Check color uniformity', required: true },
+        { name: 'Moisture Content', description: 'Measure moisture level', required: false },
+        { name: 'Fiber Length Test', description: 'Sample fiber length measurement', required: false },
+      ],
+      testParameters: [
+        { name: 'Tensile Strength', minValue: 25, maxValue: 40, unit: 'g/tex' },
+        { name: 'Elongation', minValue: 5, maxValue: 8, unit: '%' },
+        { name: 'Moisture', minValue: 6, maxValue: 8.5, unit: '%' },
+      ],
+    },
+    {
+      name: 'Production Batch Quality Check',
+      description: 'Quality inspection for production batches',
+      entityType: 'PRODUCTION_BATCH',
+      checklistItems: [
+        { name: 'Yarn Count Verification', description: 'Verify yarn count matches specification', required: true },
+        { name: 'Twist Per Inch', description: 'Check TPI is within tolerance', required: true },
+        { name: 'Surface Quality', description: 'Visual check for neps and imperfections', required: true },
+        { name: 'Package Weight', description: 'Verify package weight consistency', required: true },
+      ],
+      testParameters: [
+        { name: 'Count CV%', minValue: 0, maxValue: 2, unit: '%' },
+        { name: 'Strength CV%', minValue: 0, maxValue: 10, unit: '%' },
+        { name: 'Elongation CV%', minValue: 0, maxValue: 8, unit: '%' },
+      ],
+    },
+  ];
+
+  const templates = [];
+  for (const t of templatesData) {
+    const existing = await prisma.inspectionTemplate.findFirst({ where: { name: t.name } });
+    if (!existing) {
+      const template = await prisma.inspectionTemplate.create({
+        data: {
+          name: t.name,
+          description: t.description,
+          entityType: t.entityType as InspectionEntity,
+          checklistItems: t.checklistItems,
+          testParameters: t.testParameters,
+          isActive: true,
+        },
+      });
+      templates.push(template);
+      console.log(`Created template: ${t.name}`);
+    } else {
+      templates.push(existing);
+    }
+  }
+
+  // 5.2 Quality Inspections
+  const inspectorUser = await prisma.user.findFirst();
+  const allRMsForQC = await prisma.rawMaterial.findMany({ take: 15 });
+  const allBatches = await prisma.productionBatch.findMany({ take: 15 });
+
+  // Skip if no data to link to
+  if (allRMsForQC.length === 0 || allBatches.length === 0) {
+    console.log('Skipping quality control seeding - no raw materials or batches found');
+  } else {
+    const statuses = ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'COMPLETED', 'COMPLETED'];
+    const results = ['PASS', 'PASS', 'PASS', 'CONDITIONAL_PASS', 'FAIL'];
+
+    for (let i = 0; i < 20; i++) {
+      const inspNum = `INS-${2024000 + i}`;
+      const existing = await prisma.qualityInspection.findFirst({ where: { inspectionNumber: inspNum } });
+
+      if (!existing) {
+        const isRawMaterial = i < 12;
+        const entity = isRawMaterial ? allRMsForQC[i % allRMsForQC.length] : allBatches[(i - 12) % allBatches.length];
+        if (!entity) continue;
+
+        const status = statuses[i % statuses.length];
+        const result = status === 'COMPLETED' ? results[i % results.length] : null;
+        const template = isRawMaterial ? templates[0] : templates[1];
+
+        const daysAgo = Math.floor(Math.random() * 30);
+        const inspDate = new Date();
+        inspDate.setDate(inspDate.getDate() - daysAgo);
+
+        await prisma.qualityInspection.create({
+          data: {
+            inspectionNumber: inspNum,
+            entityType: isRawMaterial ? InspectionEntity.RAW_MATERIAL : InspectionEntity.PRODUCTION_BATCH,
+            entityId: entity.id,
+            templateId: template?.id || null,
+            inspectorId: inspectorUser?.id || null,
+            status: status as InspectionStatus,
+            result: result as InspectionResult | null,
+            inspectionDate: inspDate,
+            checklistItems: template?.checklistItems ? (template.checklistItems as any[]).map((item: any, idx: number) => ({
+              ...item,
+              passed: result !== 'FAIL' || idx < 3,
+              notes: idx === 0 ? 'Looks good' : null,
+            })) : [],
+            notes: result === 'FAIL' ? 'Failed due to quality issues' : (result === 'CONDITIONAL_PASS' ? 'Minor issues noted' : null),
+          },
+        });
+        console.log(`Created inspection: ${inspNum}`);
+      }
+    }
+  }
+
+  // 5.3 Quality Tests
+  for (let i = 0; i < 15; i++) {
+    const testNum = `QT-${2024000 + i}`;
+    const existing = await prisma.qualityTest.findFirst({ where: { testNumber: testNum } });
+
+    if (!existing) {
+      const isRawMaterial = i < 10;
+      const entity = isRawMaterial ? allRMsForQC[i % allRMsForQC.length] : allBatches[(i - 10) % allBatches.length];
+      const score = 65 + Math.random() * 35;
+      const grade = score >= 90 ? 'A' : score >= 80 ? 'B' : score >= 70 ? 'C' : score >= 60 ? 'D' : 'F';
+
+      const daysAgo = Math.floor(Math.random() * 30);
+      const testDate = new Date();
+      testDate.setDate(testDate.getDate() - daysAgo);
+
+      await prisma.qualityTest.create({
+        data: {
+          testNumber: testNum,
+          entityType: isRawMaterial ? 'RAW_MATERIAL' : 'PRODUCTION_BATCH',
+          entityId: entity?.id || '',
+          testDate,
+          testParameters: {
+            tensileStrength: 28 + Math.random() * 10,
+            elongation: 5 + Math.random() * 3,
+            moisture: 6.5 + Math.random() * 1.5,
+          },
+          qualityScore: Math.round(score * 100) / 100,
+          qualityGrade: grade,
+          testedBy: inspectorUser?.id,
+          status: 'COMPLETED',
+        },
+      });
+      console.log(`Created quality test: ${testNum}`);
+    }
+  }
+
+  // 5.4 Defect Logs
+  const defectCategories = ['Color Variation', 'Contamination', 'Count Deviation', 'Strength Issue', 'Packaging Damage'];
+  const defectTypes = ['Visual', 'Physical', 'Measurement', 'Structural', 'Packaging'];
+  const severities: DefectSeverity[] = [DefectSeverity.CRITICAL, DefectSeverity.MAJOR, DefectSeverity.MINOR, DefectSeverity.MINOR, DefectSeverity.MINOR];
+  const actionStatuses: ActionStatus[] = [ActionStatus.PENDING, ActionStatus.IN_PROGRESS, ActionStatus.COMPLETED, ActionStatus.COMPLETED, ActionStatus.COMPLETED];
+
+  for (let i = 0; i < 12; i++) {
+    const defectNum = `DEF-${2024000 + i}`;
+    const existing = await prisma.defectLog.findFirst({ where: { defectNumber: defectNum } });
+
+    if (!existing) {
+      const isRawMaterial = i < 8;
+      const entity = isRawMaterial ? allRMsForQC[i % allRMsForQC.length] : allBatches[(i - 8) % allBatches.length];
+
+      const daysAgo = Math.floor(Math.random() * 30);
+      const defectDate = new Date();
+      defectDate.setDate(defectDate.getDate() - daysAgo);
+
+      await prisma.defectLog.create({
+        data: {
+          defectNumber: defectNum,
+          entityType: isRawMaterial ? 'RAW_MATERIAL' : 'PRODUCTION_BATCH',
+          entityId: entity?.id || '',
+          defectCategory: defectCategories[i % defectCategories.length],
+          defectType: defectTypes[i % defectTypes.length],
+          description: `${defectCategories[i % defectCategories.length]} detected during inspection`,
+          severity: severities[i % severities.length],
+          quantity: 10 + Math.random() * 50,
+          rootCause: i % 3 === 0 ? 'Supplier quality issue' : (i % 3 === 1 ? 'Machine malfunction' : 'Process deviation'),
+          correctiveAction: actionStatuses[i % actionStatuses.length] === ActionStatus.COMPLETED ? 'Issue addressed and corrected' : null,
+          actionStatus: actionStatuses[i % actionStatuses.length],
+          reportedBy: inspectorUser?.id,
+          createdAt: defectDate,
+        },
+      });
+      console.log(`Created defect log: ${defectNum}`);
+    }
+  }
+
+  // 6. Billing Data
+  console.log('--- Seeding Billing Data ---');
+  const invoiceData = [
+    { customerName: 'Global Cotton Co', totalAmount: 150000, status: 'PAID', items: { create: [{ description: 'Cotton Yarn 40s', quantity: 1000, price: 150 }] } },
+    { customerName: 'Silk Road Traders', totalAmount: 75000, status: 'PENDING', items: { create: [{ description: 'Silk Yarn Premium', quantity: 50, price: 1500 }] } },
+    { customerName: 'PolySynth Ltd', totalAmount: 200000, status: 'OVERDUE', items: { create: [{ description: 'Polyester Raw', quantity: 5000, price: 40 }] } },
+  ];
+
+  for (const inv of invoiceData) {
+    const existing = await prisma.invoice.findFirst({ where: { customerName: inv.customerName } });
+    if (!existing) {
+      await prisma.invoice.create({
+        data: {
+          ...inv,
+          invoiceNumber: `INV-${Math.floor(1000 + Math.random() * 9000)}`,
+          date: new Date(),
+          taxAmount: Number(inv.totalAmount) * 0.18,
+          billingCycle: 'Jan 2026'
+        }
+      });
     }
   }
 

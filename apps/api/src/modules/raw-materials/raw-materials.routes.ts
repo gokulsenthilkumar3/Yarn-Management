@@ -12,7 +12,8 @@ rawMaterialsRouter.get('/', authenticate, async (req: Request, res: Response, ne
         let rawMaterials = await prisma.rawMaterial.findMany({
             include: {
                 supplier: { select: { id: true, name: true, supplierCode: true } },
-                productionBatches: { select: { batchNumber: true } }
+                productionBatches: { select: { batchNumber: true } },
+                warehouseLocation: { include: { warehouse: { select: { name: true } } } }
             },
             orderBy: { receivedDate: 'desc' },
         });

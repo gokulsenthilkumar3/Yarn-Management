@@ -7,6 +7,7 @@ import {
     Paper,
     List,
     ListItem,
+    ListItemButton,
     ListItemText,
     ListItemAvatar,
     Avatar,
@@ -218,14 +219,15 @@ export default function GlobalSearch() {
                                     {history.map((term, i) => (
                                         <ListItem
                                             key={i}
-                                            button
-                                            onClick={() => handleHistoryClick(term)}
+                                            disablePadding
                                             sx={{ '&:hover': { bgcolor: 'action.hover' } }}
                                         >
-                                            <ListItemAvatar sx={{ minWidth: 40 }}>
-                                                <SearchIcon fontSize="small" color="action" />
-                                            </ListItemAvatar>
-                                            <ListItemText primary={term} primaryTypographyProps={{ variant: 'body2' }} />
+                                            <ListItemButton onClick={() => handleHistoryClick(term)}>
+                                                <ListItemAvatar sx={{ minWidth: 40 }}>
+                                                    <SearchIcon fontSize="small" color="action" />
+                                                </ListItemAvatar>
+                                                <ListItemText primary={term} primaryTypographyProps={{ variant: 'body2' }} />
+                                            </ListItemButton>
                                         </ListItem>
                                     ))}
                                 </List>

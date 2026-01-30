@@ -10,13 +10,23 @@ import {
     Paper,
     LinearProgress,
     Typography,
-    Chip
+    Chip,
+    IconButton,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Button
 } from '@mui/material';
+import QrCodeIcon from '@mui/icons-material/QrCode';
 import { http } from '../../lib/http';
 
 export default function FinishedGoodsList() {
     const [goods, setGoods] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [qrOpen, setQrOpen] = useState(false);
+    const [qrData, setQrData] = useState<string | null>(null);
+    const [qrTitle, setQrTitle] = useState('');
 
     useEffect(() => {
         load();
@@ -36,6 +46,15 @@ export default function FinishedGoodsList() {
 
     if (loading) return <LinearProgress />;
 
+    const handleShowQr = async (text: string, title: string) => {
+        try {
+            const res = await http.get(`/inventory/qrcode?text=${encodeURIComponent(text)}`);
+            setQrData(res.data.dataUrl);
+            setQrTitle(title);
+            setQrOpen(true);
+        } catch (e) { console.error('Failed to generate QR', e); }
+    };
+
     return (
         <Box>
             <TableContainer component={Paper} sx={{ borderRadius: 2, border: '1px solid #e2e8f0', boxShadow: 'none' }}>
@@ -50,6 +69,7 @@ export default function FinishedGoodsList() {
                             <TableCell sx={{ fontWeight: 'bold' }}>Packed Date</TableCell>
                             <TableCell sx={{ fontWeight: 'bold' }}>Location</TableCell>
                             <TableCell sx={{ fontWeight: 'bold' }}>Days in Stock</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -66,13 +86,18 @@ export default function FinishedGoodsList() {
                                         <TableCell sx={{ fontWeight: 'bold' }}>{item.producedQuantity}</TableCell>
                                         <TableCell>{item.qualityGrade || '-'}</TableCell>
                                         <TableCell>{new Date(item.packingDate).toLocaleDateString()}</TableCell>
-                                        <TableCell>{item.warehouseLocation || 'Main Warehouse'}</TableCell>
+                                        <TableCell>{item.warehouseLocation?.code ? `${item.warehouseLocation.warehouse?.name} - ${item.warehouseLocation.code}` : item.legacyLocation || 'Main Warehouse'}</TableCell>
                                         <TableCell>
                                             <Chip
                                                 label={`${daysInStock} days`}
                                                 size="small"
                                                 color={daysInStock > 30 ? 'warning' : 'default'}
                                             />
+                                        </TableCell>
+                                        <TableCell>
+                                            <IconButton size="small" color="primary" onClick={() => handleShowQr(item.id, `Product: ${item.batch?.batchNumber}`)}>
+                                                <QrCodeIcon fontSize="small" />
+                                            </IconButton>
                                         </TableCell>
                                     </TableRow>
                                 );
@@ -81,6 +106,18 @@ export default function FinishedGoodsList() {
                     </TableBody>
                 </Table>
             </TableContainer>
+
+            <Dialog open={qrOpen} onClose={() => setQrOpen(false)}>
+                <DialogTitle>{qrTitle}</DialogTitle>
+                <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 4 }}>
+                    {qrData ? <img src={qrData} alt="QR Code" style={{ width: 250, height: 250 }} /> : <Typography>Generating...</Typography>}
+                    <Typography variant="caption" sx={{ mt: 2, fontFamily: 'monospace' }}>Product Batch Identification QR</Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setQrOpen(false)}>Close</Button>
+                    <Button onClick={() => window.print()} variant="outlined">Print</Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }
