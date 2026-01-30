@@ -4,47 +4,9 @@ import { env } from '../../config/env';
 import { prisma } from '../../prisma/client';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
-import { OAuth2Client } from 'google-auth-library';
 
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-export async function loginWithGoogle(idToken: string) {
-  const ticket = await googleClient.verifyIdToken({
-    idToken,
-    audience: process.env.GOOGLE_CLIENT_ID,
-  });
-  const payload = ticket.getPayload();
-  if (!payload || !payload.email) throw new Error('Invalid Google Token');
 
-  const { email, name, sub: googleId } = payload;
-
-  let user = await prisma.user.findUnique({ where: { email } });
-
-  if (!user) {
-    user = await prisma.user.create({
-      data: {
-        email,
-        name: name || 'Google User',
-        authProvider: 'GOOGLE',
-        // passwordHash is optional now
-        status: 'ACTIVE',
-      },
-    });
-  } else if (user.authProvider !== 'GOOGLE') {
-    // Optional: Merge accounts or throw error
-    // For now, allow linking if email matches
-  }
-
-  const accessToken = signAccessToken(user.id);
-  const refresh = signRefreshToken(user.id);
-
-  const tokenHash = await hashToken(refresh.raw);
-  await prisma.refreshToken.create({
-    data: { userId: user.id, tokenHash, expiresAt: refresh.expiresAt },
-  });
-
-  return { accessToken, refreshToken: refresh.raw, refreshExpiresAt: refresh.expiresAt, user };
-}
 
 function daysToMs(days: number) {
   return days * 24 * 60 * 60 * 1000;

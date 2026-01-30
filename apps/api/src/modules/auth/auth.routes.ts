@@ -72,31 +72,14 @@ authRouter.post(
   }
 );
 
-// --- Google Auth & MFA ---
+// --- MFA ---
 
 import { authenticate } from '../../middleware/authenticate';
 import {
-  loginWithGoogle,
   setupMfa,
   enableMfa,
   validateMfa,
 } from './auth.service';
-
-authRouter.post('/google', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { idToken } = z.object({ idToken: z.string() }).parse(req.body);
-    const result = await loginWithGoogle(idToken);
-
-    res.cookie('refresh_token', result.refreshToken, {
-      ...cookieOptions,
-      expires: result.refreshExpiresAt,
-    });
-
-    return res.json({ accessToken: result.accessToken, user: result.user });
-  } catch (e) {
-    return next(e);
-  }
-});
 
 authRouter.post('/mfa/setup', authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
