@@ -1,7 +1,6 @@
 import { z } from 'zod';
-
-// Mock Invoices Data Store
-// In a real app, this would be `prisma.invoice`
+import { prisma } from '../../prisma/client';
+import { Prisma } from '@prisma/client';
 
 export interface InvoiceItem {
     description: string;
@@ -9,118 +8,261 @@ export interface InvoiceItem {
     price: number;
 }
 
-export interface Invoice {
-    id: string;
-    invoiceNumber: string;
-    customerName: string;
-    date: string;
-    billingCycle: string;
-    totalAmount: number;
-    status: string;
-    items: InvoiceItem[];
-}
-
-// Generate Mock Invoices for the last 7 months
-const generateMockInvoices = (): Invoice[] => {
-    const invoices: Invoice[] = [];
-    const customers = ['ABC Textiles', 'XYZ Fabrics', 'Global Corp', 'Fashion Trends', 'Weave Masters'];
-    const statuses = ['PAID', 'PENDING', 'OVERDUE'];
-
-    // Last 7 months + current
-    const today = new Date();
-    for (let i = 0; i < 150; i++) { // 150 invoices
-        const monthsAgo = Math.floor(Math.random() * 7);
-        const date = new Date(today);
-        date.setMonth(today.getMonth() - monthsAgo);
-        date.setDate(Math.random() * 28 + 1);
-
-        const customer = customers[Math.floor(Math.random() * customers.length)];
-        const amount = 5000 + Math.floor(Math.random() * 95000); // 5k to 100k
-        const status = statuses[Math.floor(Math.random() * statuses.length)];
-
-        // Billing cycle string (e.g., "Jan 2024")
-        const billingCycle = date.toLocaleDateString('default', { month: 'short', year: 'numeric' });
-
-        invoices.push({
-            id: `INV-${1000 + i}`,
-            invoiceNumber: `INV-${date.getFullYear()}-${(1000 + i)}`,
-            customerName: customer,
-            date: date.toISOString(),
-            billingCycle: billingCycle,
-            totalAmount: amount,
-            status: status,
-            items: [
-                { description: 'Cotton Yarn Batch', quantity: 10 + Math.floor(Math.random() * 50), price: amount / 10 } // Simplified item logic
-            ]
-        });
-    }
-    return invoices.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-};
-
-let MOCK_INVOICES = generateMockInvoices();
-
 export const createInvoiceSchema = z.object({
     customerName: z.string().min(1),
-    date: z.string().datetime().optional(), // Created Date
-    billingCycle: z.string().optional(), // New Field
+    date: z.string().datetime().optional(),
+    billingCycle: z.string().optional(),
     items: z.array(z.object({
         description: z.string(),
         quantity: z.number().positive(),
         price: z.number().min(0)
     })),
+    isRecurring: z.boolean().optional(),
+    frequency: z.enum(['MONTHLY', 'QUARTERLY', 'ANNUALLY']).optional(),
+    notes: z.string().optional(),
+    templateName: z.string().optional(),
 });
 
 export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>;
 
 export const getInvoices = async () => {
-    return MOCK_INVOICES;
+    return await prisma.invoice.findMany({
+        include: { items: true, recurringConfig: true },
+        orderBy: { date: 'desc' },
+    });
 };
 
 export const createInvoice = async (body: CreateInvoiceInput) => {
-    const total = body.items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+    const totalAmount = body.items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+    const taxAmount = totalAmount * 0.18;
 
-    const newInvoice: Invoice = {
-        id: Math.random().toString(36).substring(7),
-        invoiceNumber: (() => {
-            const date = new Date();
-            const yyyy = date.getFullYear();
-            const mm = String(date.getMonth() + 1).padStart(2, '0');
-            const dd = String(date.getDate()).padStart(2, '0');
-            const datePart = `${yyyy}${mm}${dd}`; // 8 chars
+    return await prisma.$transaction(async (tx) => {
+        const invoiceCount = await tx.invoice.count();
+        const invoice = await tx.invoice.create({
+            data: {
+                invoiceNumber: generateInvoiceNumber(body.customerName, invoiceCount + 1),
+                customerName: body.customerName,
+                date: body.date ? new Date(body.date) : new Date(),
+                billingCycle: body.billingCycle || new Date().toLocaleDateString('default', { month: 'short', year: 'numeric' }),
+                totalAmount: new Prisma.Decimal(totalAmount + taxAmount),
+                taxAmount: new Prisma.Decimal(taxAmount),
+                status: 'PENDING',
+                notes: body.notes,
+                templateName: body.templateName || 'STANDARD',
+                isRecurring: body.isRecurring || false,
+                items: {
+                    create: body.items.map(item => ({
+                        description: item.description,
+                        quantity: new Prisma.Decimal(item.quantity),
+                        unitPrice: new Prisma.Decimal(item.price),
+                        totalPrice: new Prisma.Decimal(item.quantity * item.price),
+                    }))
+                }
+            },
+            include: { items: true }
+        });
+        // ... rest of createInvoice
 
-            // Get strictly 4 chars from customer ID or name
-            const custPart = (body.customerName.replace(/[^a-zA-Z0-9]/g, '').toUpperCase() + 'XXXX').substring(0, 4);
+        if (body.isRecurring && body.frequency) {
+            const nextRunDate = new Date();
+            if (body.frequency === 'MONTHLY') nextRunDate.setMonth(nextRunDate.getMonth() + 1);
+            else if (body.frequency === 'QUARTERLY') nextRunDate.setMonth(nextRunDate.getMonth() + 3);
+            else if (body.frequency === 'ANNUALLY') nextRunDate.setFullYear(nextRunDate.getFullYear() + 1);
 
-            // Sequence part (4 chars)
-            const seq = String(MOCK_INVOICES.length + 1).padStart(4, '0');
+            await tx.recurringBillingConfig.create({
+                data: {
+                    invoiceId: invoice.id,
+                    frequency: body.frequency,
+                    nextRunDate,
+                }
+            });
+        }
 
-            return `${datePart}${custPart}${seq}`; // 8 + 4 + 4 = 16 chars
-        })(),
-        customerName: body.customerName,
-        date: body.date || new Date().toISOString(),
-        billingCycle: new Date(body.date || new Date()).toLocaleDateString('default', { month: 'short', year: 'numeric' }),
-        totalAmount: total,
-        status: 'PENDING',
-        items: body.items
-    };
-
-    MOCK_INVOICES = [newInvoice, ...MOCK_INVOICES];
-    return newInvoice;
+        return invoice;
+    });
 };
 
 export const deleteInvoice = async (id: string) => {
-    const initialLength = MOCK_INVOICES.length;
-    MOCK_INVOICES = MOCK_INVOICES.filter(inv => inv.id !== id);
-    return MOCK_INVOICES.length < initialLength;
+    try {
+        await prisma.invoice.delete({ where: { id } });
+        return true;
+    } catch {
+        return false;
+    }
 };
 
-export const updateInvoiceStatus = async (id: string, status: string) => {
-    const invoiceIndex = MOCK_INVOICES.findIndex(inv => inv.id === id);
-    if (invoiceIndex === -1) return null;
-
-    MOCK_INVOICES[invoiceIndex] = { ...MOCK_INVOICES[invoiceIndex], status };
-    return MOCK_INVOICES[invoiceIndex];
+export const updateInvoiceStatus = async (id: string, status: any) => {
+    try {
+        return await prisma.invoice.update({
+            where: { id },
+            data: { status },
+            include: { items: true }
+        });
+    } catch {
+        return null;
+    }
 };
 
-// Helper for other services to access data
-export const getAllInvoicesRaw = () => MOCK_INVOICES;
+export const processRecurringInvoices = async () => {
+    const today = new Date();
+    const dueConfigs = await prisma.recurringBillingConfig.findMany({
+        where: {
+            isActive: true,
+            nextRunDate: { lte: today },
+        },
+        include: { invoice: { include: { items: true } } }
+    });
+
+    for (const config of dueConfigs) {
+        // Generate new invoice based on the template (current config.invoice)
+        await prisma.$transaction(async (tx) => {
+            const invoiceCount = await tx.invoice.count();
+            const newInvoice = await tx.invoice.create({
+                data: {
+                    invoiceNumber: generateInvoiceNumber(config.invoice.customerName, invoiceCount + 1),
+                    customerName: config.invoice.customerName,
+                    date: new Date(),
+                    billingCycle: new Date().toLocaleDateString('default', { month: 'short', year: 'numeric' }),
+                    totalAmount: config.invoice.totalAmount,
+                    taxAmount: config.invoice.taxAmount,
+                    status: 'PENDING',
+                    notes: `Auto-generated from ${config.invoice.invoiceNumber}. ${config.invoice.notes || ''}`,
+                    isRecurring: false,
+                    templateName: config.invoice.templateName,
+                    items: {
+                        create: config.invoice.items.map((item: any) => ({
+                            description: item.description,
+                            quantity: item.quantity,
+                            unitPrice: item.unitPrice,
+                            totalPrice: item.totalPrice,
+                        }))
+                    }
+                }
+            });
+
+            // Update next run date
+            const nextRunDate = new Date(config.nextRunDate);
+            if (config.frequency === 'MONTHLY') nextRunDate.setMonth(nextRunDate.getMonth() + 1);
+            else if (config.frequency === 'QUARTERLY') nextRunDate.setMonth(nextRunDate.getMonth() + 3);
+            else if (config.frequency === 'ANNUALLY') nextRunDate.setFullYear(nextRunDate.getFullYear() + 1);
+
+            await tx.recurringBillingConfig.update({
+                where: { id: config.id },
+                data: { nextRunDate }
+            });
+        });
+    }
+
+    return dueConfigs.length;
+};
+
+export const checkOverdueInvoices = async () => {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const pendingInvoices = await prisma.invoice.findMany({
+        where: {
+            status: 'PENDING',
+            date: { lte: thirtyDaysAgo },
+        }
+    });
+
+    for (const invoice of pendingInvoices) {
+        await prisma.invoice.update({
+            where: { id: invoice.id },
+            data: { status: 'OVERDUE' }
+        });
+
+        // Trigger notifications (could be imported dynamically to avoid circular deps if needed)
+        // For now we'll just log or assume a separate process handles the aggregate notification
+    }
+
+    return pendingInvoices.length;
+};
+
+const generateInvoiceNumber = (customerName: string, sequence: number) => {
+    const date = new Date();
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    const datePart = `${yyyy}${mm}${dd}`;
+
+    const custPart = (customerName.replace(/[^a-zA-Z0-9]/g, '').toUpperCase() + 'XXXX').substring(0, 4);
+    const seqPart = String(sequence).padStart(4, '0');
+
+    return `${datePart}${custPart}${seqPart}`;
+};
+
+export const createCreditNoteSchema = z.object({
+    invoiceId: z.string().optional(),
+    customerName: z.string().min(1),
+    amount: z.number().positive(),
+    reason: z.enum(['RETURNED_GOODS', 'OVERCHARGED', 'DAMAGED_ITEMS', 'OTHER']),
+    notes: z.string().optional(),
+});
+
+export type CreateCreditNoteInput = z.infer<typeof createCreditNoteSchema>;
+
+export const createCreditNote = async (body: CreateCreditNoteInput) => {
+    return await prisma.$transaction(async (tx) => {
+        const count = await tx.creditNote.count();
+        const creditNote = await tx.creditNote.create({
+            data: {
+                creditNoteNumber: `CN-${generateInvoiceNumber(body.customerName, count + 1)}`,
+                customerName: body.customerName,
+                invoiceId: body.invoiceId,
+                amount: new Prisma.Decimal(body.amount),
+                reason: body.reason,
+                notes: body.notes,
+            }
+        });
+
+        // Optionally update invoice status if linked
+        if (body.invoiceId && body.reason === 'OVERCHARGED') {
+            // Logic to adjust invoice could go here
+        }
+
+        return creditNote;
+    });
+};
+
+export const getCreditNotes = async () => {
+    return await prisma.creditNote.findMany({
+        include: { invoice: true },
+        orderBy: { date: 'desc' },
+    });
+};
+
+export const createDebitNoteSchema = z.object({
+    invoiceId: z.string().optional(),
+    customerName: z.string().min(1),
+    amount: z.number().positive(),
+    reason: z.string().min(1),
+    notes: z.string().optional(),
+});
+
+export type CreateDebitNoteInput = z.infer<typeof createDebitNoteSchema>;
+
+export const createDebitNote = async (body: CreateDebitNoteInput) => {
+    return await prisma.$transaction(async (tx) => {
+        const count = await tx.debitNote.count();
+        const debitNote = await tx.debitNote.create({
+            data: {
+                debitNoteNumber: `DN-${generateInvoiceNumber(body.customerName, count + 1)}`,
+                customerName: body.customerName,
+                invoiceId: body.invoiceId,
+                amount: new Prisma.Decimal(body.amount),
+                reason: body.reason,
+                notes: body.notes,
+            }
+        });
+        return debitNote;
+    });
+};
+
+export const getDebitNotes = async () => {
+    return await prisma.debitNote.findMany({
+        include: { invoice: true },
+        orderBy: { date: 'desc' },
+    });
+};

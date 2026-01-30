@@ -33,14 +33,21 @@ export default function RawMaterialForm({ open, onClose, onSave, rawMaterial, in
         qualityScore: '5',
         moistureContent: '',
         receivedDate: new Date().toISOString().split('T')[0],
-        warehouseLocation: '',
+        warehouseLocationId: '',
         status: 'IN_STOCK',
         notes: ''
     });
+    const [warehouses, setWarehouses] = useState<any[]>([]);
 
     useEffect(() => {
         if (open) {
-            http.get('/suppliers').then(res => setSuppliers(res.data.suppliers));
+            Promise.all([
+                http.get('/suppliers'),
+                http.get('/inventory/warehouses')
+            ]).then(([sRes, wRes]) => {
+                setSuppliers(sRes.data.suppliers);
+                setWarehouses(wRes.data.warehouses);
+            });
 
             if (rawMaterial) {
                 // Edit Mode
@@ -52,6 +59,7 @@ export default function RawMaterialForm({ open, onClose, onSave, rawMaterial, in
                     qualityScore: String(rawMaterial.qualityScore),
                     moistureContent: String(rawMaterial.moistureContent || ''),
                     receivedDate: rawMaterial.receivedDate.split('T')[0],
+                    warehouseLocationId: rawMaterial.warehouseLocationId || '',
                 });
             } else if (initialValues) {
                 // Clone Mode - Clear unique fields if needed
@@ -78,7 +86,7 @@ export default function RawMaterialForm({ open, onClose, onSave, rawMaterial, in
                     qualityScore: '5',
                     moistureContent: '',
                     receivedDate: new Date().toISOString().split('T')[0],
-                    warehouseLocation: '',
+                    warehouseLocationId: '',
                     status: 'IN_STOCK',
                     notes: ''
                 });
@@ -190,6 +198,26 @@ export default function RawMaterialForm({ open, onClose, onSave, rawMaterial, in
                         onChange={e => setValues({ ...values, receivedDate: e.target.value })}
                         InputLabelProps={{ shrink: true }}
                     />
+
+                    <TextField
+                        select
+                        label="Warehouse Location"
+                        value={values.warehouseLocationId}
+                        onChange={e => setValues({ ...values, warehouseLocationId: e.target.value })}
+                        helperText="Assign to a storage location"
+                    >
+                        <MenuItem value=""><em>None / Unassigned</em></MenuItem>
+                        {warehouses.map(w => (
+                            <Box key={w.id}>
+                                <MenuItem disabled sx={{ opacity: 1, fontWeight: 'bold' }}>{w.name}</MenuItem>
+                                {(w.locations || []).map((l: any) => (
+                                    <MenuItem key={l.id} value={l.id} sx={{ pl: 4 }}>
+                                        {l.code} ({l.zone || 'No Zone'})
+                                    </MenuItem>
+                                ))}
+                            </Box>
+                        ))}
+                    </TextField>
 
                     <TextField
                         label="Notes"

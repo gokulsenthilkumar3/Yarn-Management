@@ -30,7 +30,10 @@ export const handleSupplierImport = async (req: Request, res: Response) => {
                     paymentTerms: row['Payment Terms'],
                     rating: row['Rating'] ? parseFloat(row['Rating']) : undefined,
                     notes: row['Notes'],
-                    status: row['Status'] || 'Active'
+                    status: row['Status'] || 'Active',
+                    businessType: row['Business Type'] || 'Manufacturer',
+                    supplierCode: row['Supplier Code'] || `SUP-${Date.now()}-${count}`,
+                    supplierType: row['Supplier Type'] || 'Regular'
                 }
             });
             count++;
@@ -76,6 +79,7 @@ export const handleRawMaterialImport = async (req: Request, res: Response) => {
                     qualityScore: String(row['Quality Score'] || 0),
                     receivedDate: row['Received Date'] ? new Date(row['Received Date']) : new Date(),
                     costPerUnit: String(row['Cost'] || 0),
+                    totalCost: String((row['Quantity'] || 0) * (row['Cost'] || 0)),
                     moistureContent: String(row['Moisture'] || 0),
                     warehouseLocation: row['Location'],
                     status: row['Status'] || 'IN_STOCK',

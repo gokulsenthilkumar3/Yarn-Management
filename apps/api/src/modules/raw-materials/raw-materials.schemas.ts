@@ -10,7 +10,8 @@ export const createRawMaterialSchema = z.object({
     qualityScore: z.number().min(1).max(10, 'Quality score must be 1-10'),
     moistureContent: z.number().min(0).max(100).nullish(),
     receivedDate: z.string().datetime(),
-    warehouseLocation: z.string().nullish(),
+    warehouseLocationId: z.string().uuid().nullish(),
+    legacyLocation: z.string().nullish(),
     status: z.enum(['IN_STOCK', 'QUALITY_CHECK', 'CONSUMED', 'RETURNED']).default('IN_STOCK'),
     notes: z.string().nullish(),
 });

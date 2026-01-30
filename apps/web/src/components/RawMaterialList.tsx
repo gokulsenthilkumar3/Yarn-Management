@@ -10,8 +10,13 @@ import {
     Popover,
     Checkbox,
     FormControlLabel,
-    Stack
+    Stack,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions
 } from '@mui/material';
+import QrCodeIcon from '@mui/icons-material/QrCode';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -63,6 +68,9 @@ export default function RawMaterialList() {
     const [editing, setEditing] = useState<RawMaterial | undefined>();
     const [initialValues, setInitialValues] = useState<any | undefined>();
     const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+    const [qrOpen, setQrOpen] = useState(false);
+    const [qrData, setQrData] = useState<string | null>(null);
+    const [qrTitle, setQrTitle] = useState('');
 
     // Pagination State
     const [page, setPage] = useState(0);
@@ -151,6 +159,15 @@ export default function RawMaterialList() {
         }
     }
 
+    const handleShowQr = async (text: string, title: string) => {
+        try {
+            const res = await http.get(`/inventory/qrcode?text=${encodeURIComponent(text)}`);
+            setQrData(res.data.dataUrl);
+            setQrTitle(title);
+            setQrOpen(true);
+        } catch (e) { notify.showError('Failed to generate QR'); }
+    };
+
     const columns: Column<RawMaterial>[] = [
         { id: 'batchNo', label: 'Batch No', minWidth: 100 },
         { id: 'supplier', label: 'Supplier', format: (_val, row) => row.supplier?.name || '-' },
@@ -159,7 +176,7 @@ export default function RawMaterialList() {
         { id: 'cost', label: 'Cost', format: (_val, row) => row.costPerUnit || '-' },
         { id: 'quality', label: 'Quality', format: (_val, row) => row.qualityScore ? Number(row.qualityScore).toFixed(1) : '-' },
         { id: 'moisture', label: 'Moisture', format: (_val, row) => row.moistureContent ? `${row.moistureContent}%` : '-' },
-        { id: 'location', label: 'Location', format: (_val, row) => row.warehouseLocation || '-' },
+        { id: 'location', label: 'Location', format: (_val, row) => (row.warehouseLocation?.code ? `${row.warehouseLocation.warehouse?.name} - ${row.warehouseLocation.code}` : row.legacyLocation || '-') },
         {
             id: 'batches',
             label: 'Prod. Batches',
@@ -211,6 +228,17 @@ export default function RawMaterialList() {
                         title="Clone"
                     >
                         <ContentCopyIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                        size="small"
+                        color="secondary"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleShowQr(row.id, `Material Batch: ${row.batchNo}`);
+                        }}
+                        title="View QR Code"
+                    >
+                        <QrCodeIcon fontSize="small" />
                     </IconButton>
                     <IconButton
                         color="error"
@@ -494,6 +522,18 @@ export default function RawMaterialList() {
                 onConfirm={handleBulkDeleteConfirm}
                 onClose={() => setBulkDeleteConfirmationOpen(false)}
             />
+
+            <Dialog open={qrOpen} onClose={() => setQrOpen(false)}>
+                <DialogTitle>{qrTitle}</DialogTitle>
+                <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 4 }}>
+                    {qrData ? <img src={qrData} alt="QR Code" style={{ width: 250, height: 250 }} /> : <Typography>Generating...</Typography>}
+                    <Typography variant="caption" sx={{ mt: 2, fontFamily: 'monospace' }}>Batch Identification SQ Code</Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setQrOpen(false)}>Close</Button>
+                    <Button onClick={() => window.print()} variant="outlined">Print Label</Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }

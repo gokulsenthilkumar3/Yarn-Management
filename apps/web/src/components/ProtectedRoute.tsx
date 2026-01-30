@@ -1,7 +1,11 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { getAccessToken } from '../lib/auth';
 
-export default function ProtectedRoute() {
+interface ProtectedRouteProps {
+  children?: React.ReactNode;
+}
+
+export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const location = useLocation();
   const token = getAccessToken();
 
@@ -9,5 +13,5 @@ export default function ProtectedRoute() {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  return <Outlet />;
+  return children ? <>{children}</> : <Outlet />;
 }

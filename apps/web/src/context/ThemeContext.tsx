@@ -19,6 +19,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         localStorage.setItem('theme', mode);
+        // Set data-theme attribute on document for CSS variables
+        document.documentElement.setAttribute('data-theme', mode);
+        // Also set class for components that need it
+        if (mode === 'dark') {
+            document.body.classList.add('dark-mode');
+        } else {
+            document.body.classList.remove('dark-mode');
+        }
     }, [mode]);
 
     const toggleTheme = () => {

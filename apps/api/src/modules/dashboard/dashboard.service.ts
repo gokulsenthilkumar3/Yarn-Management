@@ -58,11 +58,10 @@ export async function getProductionStats() {
 
 // Financial Summary
 export async function getFinancialSummary() {
-    // Get last 6 months revenue
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const invoices = await prisma.invoice.findMany({
+        orderBy: { date: 'desc' },
+    });
 
-    // Note: Assuming you have Invoice model - adjust if different
     const monthlyRevenue = [];
     for (let i = 5; i >= 0; i--) {
         const monthStart = new Date();
@@ -73,8 +72,9 @@ export async function getFinancialSummary() {
         const monthEnd = new Date(monthStart);
         monthEnd.setMonth(monthEnd.getMonth() + 1);
 
-        // This is a placeholder - adjust based on your actual billing schema
-        const revenue = Math.random() * 100000; // Replace with actual query
+        const revenue = invoices
+            .filter((inv: any) => inv.date >= monthStart && inv.date < monthEnd)
+            .reduce((sum: number, inv: any) => sum + Number(inv.totalAmount), 0);
 
         monthlyRevenue.push({
             month: monthStart.toLocaleString('default', { month: 'short' }),
@@ -82,14 +82,13 @@ export async function getFinancialSummary() {
         });
     }
 
-    // Outstanding invoices (placeholder)
-    const outstandingTotal = 250000; // Replace with actual query
+    const outstandingTotal = invoices
+        .filter((inv: any) => inv.status === 'PENDING' || inv.status === 'OVERDUE')
+        .reduce((sum: number, inv: any) => sum + Number(inv.totalAmount), 0);
 
-    // Payment collection rate (placeholder)
-    const collectionRate = 85; // Replace with actual calculation
-
-    // Overdue invoices (placeholder)
-    const overdueCount = 5; // Replace with actual query
+    const paidCount = invoices.filter((inv: any) => inv.status === 'PAID').length;
+    const collectionRate = invoices.length > 0 ? Math.round((paidCount / invoices.length) * 100) : 0;
+    const overdueCount = invoices.filter((inv: any) => inv.status === 'OVERDUE').length;
 
     return {
         monthlyRevenue,
@@ -634,7 +633,7 @@ export async function getProfitMarginTrends(months: number = 12) {
 // Financial Analytics - Customer Payment Behavior
 export async function getCustomerPaymentBehavior() {
     // Get invoices from shared service
-    const invoices = await billingService.getAllInvoicesRaw();
+    const invoices = await billingService.getInvoices();
 
     // 1. Calculate Average Days to Pay (Simulated based on status/random for this mock data)
     // In real app, we would use paymentDate - invoiceDate
@@ -666,7 +665,7 @@ export async function getCustomerPaymentBehavior() {
     let late = 0;
     let veryLate = 0;
 
-    invoices.forEach(inv => {
+    invoices.forEach((inv: any) => {
         if (inv.status === 'PAID') {
             // Randomly assign to a bucket for simulation
             const r = Math.random();
@@ -675,8 +674,6 @@ export async function getCustomerPaymentBehavior() {
             else veryLate++;
         } else if (inv.status === 'OVERDUE') {
             veryLate++;
-        } else {
-            // Pending - ignore or count as potential on-time
         }
     });
 

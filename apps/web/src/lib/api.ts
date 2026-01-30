@@ -9,4 +9,5 @@ const api = {
     delete: (url: string, config?: any) => http.delete(url, config),
 };
 
+export const apiClient = api;
 export default api;

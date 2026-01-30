@@ -15,6 +15,14 @@ import { dashboardRouter } from './modules/dashboard/dashboard.routes';
 import { notificationRouter } from './modules/notifications/notification.routes';
 import { searchRouter } from './modules/search/search.routes';
 import importRouter from './modules/import/import.routes';
+import { qualityControlRouter } from './modules/quality-control/quality-control.routes';
+import { procurementRouter } from './modules/procurement/procurement.routes';
+import { portalRouterExport } from './modules/portal/portal.routes';
+import { planningRouter } from './modules/production/planning.routes';
+import { machineRouter } from './modules/production/machine.routes';
+import { warehouseRouter } from './modules/inventory/warehouse.routes';
+import optimizationRouter from './modules/inventory/optimization.routes';
+import reconciliationRouter from './modules/inventory/reconciliation.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 export function createApp() {
@@ -30,6 +38,9 @@ export function createApp() {
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
 
+  // Serve uploaded files
+  app.use('/uploads', express.static('uploads'));
+
   app.get('/health', (_req: Request, res: Response) => res.json({ ok: true }));
 
   app.use('/auth', authRouter);
@@ -43,6 +54,14 @@ export function createApp() {
   app.use('/dashboard', dashboardRouter);
   app.use('/notifications', notificationRouter);
   app.use('/search', searchRouter);
+  app.use('/quality-control', qualityControlRouter);
+  app.use('/procurement', procurementRouter);
+  app.use('/portal', portalRouterExport);
+  app.use('/production', planningRouter);
+  app.use('/production', machineRouter);
+  app.use('/inventory', warehouseRouter);
+  app.use('/inventory/optimization', optimizationRouter);
+  app.use('/inventory/reconciliation', reconciliationRouter);
 
   app.use(errorHandler);
 

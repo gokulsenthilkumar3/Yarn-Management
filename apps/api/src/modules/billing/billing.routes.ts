@@ -55,3 +55,43 @@ billingRouter.patch('/invoices/:id', authenticate, async (req: Request, res: Res
         return next(e);
     }
 });
+
+// Credit Notes
+billingRouter.get('/credit-notes', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const creditNotes = await billingService.getCreditNotes();
+        return res.json({ creditNotes });
+    } catch (e) {
+        return next(e);
+    }
+});
+
+billingRouter.post('/credit-notes', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const body = billingService.createCreditNoteSchema.parse(req.body);
+        const creditNote = await billingService.createCreditNote(body);
+        return res.status(201).json({ creditNote });
+    } catch (e) {
+        return next(e);
+    }
+});
+
+// Debit Notes
+billingRouter.get('/debit-notes', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const debitNotes = await billingService.getDebitNotes();
+        return res.json({ debitNotes });
+    } catch (e) {
+        return next(e);
+    }
+});
+
+billingRouter.post('/debit-notes', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const body = billingService.createDebitNoteSchema.parse(req.body);
+        const debitNote = await billingService.createDebitNote(body);
+        return res.status(201).json({ debitNote });
+    } catch (e) {
+        return next(e);
+    }
+});

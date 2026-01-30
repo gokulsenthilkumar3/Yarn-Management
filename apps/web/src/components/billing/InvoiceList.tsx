@@ -126,8 +126,10 @@ export default function InvoiceList() {
                 <DateRangePicker
                     startDate={startDate}
                     endDate={endDate}
-                    onStartDateChange={setStartDate}
-                    onEndDateChange={setEndDate}
+                    onChange={(start, end) => {
+                        setStartDate(start);
+                        setEndDate(end);
+                    }}
                 />
             </FilterToolbar>
 
