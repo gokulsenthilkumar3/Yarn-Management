@@ -14,7 +14,7 @@ export const createInspectionSchema = z.object({
         item: z.string(),
         criteria: z.string(),
         result: z.enum(['PASS', 'FAIL', 'N/A']),
-        notes: z.string().optional(),
+        notes: z.string().nullable().optional(),
     })),
     notes: z.string().optional(),
     photoUrls: z.array(z.string()).optional(),
@@ -41,7 +41,7 @@ export const createQualityTestSchema = z.object({
     status: z.enum(['IN_PROGRESS', 'COMPLETED', 'CANCELLED']).optional(),
     certificateUrl: z.string().optional(),
     testedBy: z.string().optional(),
-    notes: z.string().optional(),
+    notes: z.string().nullable().optional(),
 });
 
 export const updateQualityTestSchema = createQualityTestSchema.partial();

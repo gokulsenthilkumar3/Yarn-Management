@@ -31,6 +31,10 @@ import ScannerPage from './pages/ScannerPage';
 import InventoryOptimizationPage from './pages/InventoryOptimizationPage';
 import InventoryReconciliationPage from './pages/InventoryReconciliationPage';
 import ReconciliationWorkspacePage from './pages/ReconciliationWorkspacePage';
+import AccountsReceivablePage from './pages/finance/AccountsReceivablePage';
+import CustomerLedgerPage from './pages/finance/CustomerLedgerPage';
+import AccountsPayablePage from './pages/finance/AccountsPayablePage';
+import VendorLedgerPage from './pages/finance/VendorLedgerPage';
 import { NotificationProvider } from './context/NotificationContext';
 import { ThemeProvider } from './context/ThemeContext';
 
@@ -65,6 +69,10 @@ export default function App() {
               <Route path="/warehouse/reconciliation" element={<InventoryReconciliationPage />} />
               <Route path="/warehouse/reconciliation/:id" element={<ReconciliationWorkspacePage />} />
               <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/finance/ar" element={<AccountsReceivablePage />} />
+              <Route path="/finance/ledger/:customerId" element={<CustomerLedgerPage />} />
+              <Route path="/finance/ap" element={<AccountsPayablePage />} />
+              <Route path="/finance/ap/ledger/:supplierId" element={<VendorLedgerPage />} />
               <Route path="/users" element={<UsersPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/quality-control" element={<QualityControlPage />} />

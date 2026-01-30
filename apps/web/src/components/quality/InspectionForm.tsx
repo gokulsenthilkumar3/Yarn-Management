@@ -136,6 +136,12 @@ export default function InspectionForm({ inspectionId, onClose, onSave }: Inspec
                 templateId: formData.templateId || undefined,
                 inspectorId: formData.inspectorId || undefined,
                 result: formData.result || undefined,
+                checklistItems: formData.checklistItems.map(item => ({
+                    item: item.item || '',
+                    criteria: item.criteria || '',
+                    result: item.result || 'N/A',
+                    notes: item.notes || null // Send null if empty/undefined to match new schema
+                }))
             };
 
             if (inspectionId) {

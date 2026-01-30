@@ -30,7 +30,7 @@ grnRouter.post('/', authenticate, async (req: Request, res: Response, next: Next
         const grnNumber = `GRN-${Date.now()}`;
 
         // Create GRN
-        const grn = await prisma.$transaction(async (tx) => {
+        const grn = await prisma.$transaction(async (tx: import('@prisma/client').Prisma.TransactionClient) => {
             const newGrn = await tx.goodsReceiptNote.create({
                 data: {
                     grnNumber,

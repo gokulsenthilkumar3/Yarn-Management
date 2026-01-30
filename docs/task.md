@@ -238,28 +238,30 @@
   - [x] Tax implications handling
 
 #### 16. Accounts Receivable Management
-- [ ] Customer ledger
-  - [ ] Transaction history
-  - [ ] Outstanding balance
-  - [ ] Aging analysis (30/60/90 days)
-  - [ ] Payment reminders
-- [ ] Collection management
-  - [ ] Follow-up task creation
-  - [ ] Collection efficiency metrics
-  - [ ] Bad debt provisioning
-  - [ ] Customer credit limits
+- [x] **Customer Ledger**: Track all invoices, payments, and balances per customer.
+- [x] **Aging Analysis**: Reports on overdue payments (0-30, 31-60, 61-90, 90+ days).
+- [x] **Collection Management**: Tools for tracking follow-ups and payment promises.
+  - [x] Collection efficiency metrics (DSO, CEI)
+  - [x] Bad debt provisioning
+  - [x] Customer credit limits
 
 #### 17. Accounts Payable Management
-- [ ] Vendor ledger
-  - [ ] Purchase history
-  - [ ] Outstanding payables
-  - [ ] Payment due dates
-  - [ ] Payment scheduling
-- [ ] Expense management
-  - [ ] Expense categorization
-  - [ ] Expense approval workflow
-  - [ ] Expense reports
-  - [ ] Budget vs actual tracking
+- [x] Vendor ledger
+  - [x] Purchase history
+  - [x] Outstanding payables
+  - [x] Payment due dates
+  - [x] Payment scheduling
+- [x] Expense management
+  - [x] Expense categorization
+  - [x] Expense approval workflow
+  - [x] Expense reports
+  - [x] Budget vs actual tracking
+
+
+#### 20. Maintenance & Bug Fixes
+- [x] Fix Foreign Key error in Billing (Credit/Debit Notes)
+- [x] Fix TypeScript errors in AR Module
+- [x] Fix JSX syntax errors in AR Dashboard
 
 ---
 

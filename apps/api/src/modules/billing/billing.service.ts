@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { prisma } from '../../prisma/client';
 import { Prisma } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
+
+type PrismaClient = typeof prisma;
 
 export interface InvoiceItem {
     description: string;
@@ -32,16 +35,35 @@ export const getInvoices = async () => {
     });
 };
 
+function toDecimal(n: number) {
+    return new Decimal(n);
+}
+
+function diffDays(from: Date, to: Date) {
+    const ms = to.getTime() - from.getTime();
+    return Math.floor(ms / (1000 * 60 * 60 * 24));
+}
+
+async function resolveCustomerIdByName(tx: Prisma.TransactionClient, customerName: string) {
+    const trimmed = customerName.trim();
+    if (!trimmed) return null;
+
+    const customer = await tx.customer.findUnique({ where: { name: trimmed } });
+    return customer?.id ?? null;
+}
+
 export const createInvoice = async (body: CreateInvoiceInput) => {
     const totalAmount = body.items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
     const taxAmount = totalAmount * 0.18;
 
-    return await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const invoiceCount = await tx.invoice.count();
+        const customerId = await resolveCustomerIdByName(tx, body.customerName);
         const invoice = await tx.invoice.create({
             data: {
                 invoiceNumber: generateInvoiceNumber(body.customerName, invoiceCount + 1),
                 customerName: body.customerName,
+                customerId,
                 date: body.date ? new Date(body.date) : new Date(),
                 billingCycle: body.billingCycle || new Date().toLocaleDateString('default', { month: 'short', year: 'numeric' }),
                 totalAmount: new Prisma.Decimal(totalAmount + taxAmount),
@@ -210,7 +232,7 @@ export const createCreditNote = async (body: CreateCreditNoteInput) => {
             data: {
                 creditNoteNumber: `CN-${generateInvoiceNumber(body.customerName, count + 1)}`,
                 customerName: body.customerName,
-                invoiceId: body.invoiceId,
+                invoiceId: body.invoiceId || null,
                 amount: new Prisma.Decimal(body.amount),
                 reason: body.reason,
                 notes: body.notes,
@@ -250,7 +272,7 @@ export const createDebitNote = async (body: CreateDebitNoteInput) => {
             data: {
                 debitNoteNumber: `DN-${generateInvoiceNumber(body.customerName, count + 1)}`,
                 customerName: body.customerName,
-                invoiceId: body.invoiceId,
+                invoiceId: body.invoiceId || null,
                 amount: new Prisma.Decimal(body.amount),
                 reason: body.reason,
                 notes: body.notes,
@@ -265,4 +287,370 @@ export const getDebitNotes = async () => {
         include: { invoice: true },
         orderBy: { date: 'desc' },
     });
+};
+
+export const getCustomers = async () => {
+    return await prisma.customer.findMany({
+        orderBy: { name: 'asc' },
+    });
+};
+
+export const createCustomer = async (body: {
+    name: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    gstin?: string;
+    creditLimit?: number;
+}) => {
+    return await prisma.customer.create({
+        data: {
+            name: body.name.trim(),
+            email: body.email || null,
+            phone: body.phone || null,
+            address: body.address || null,
+            gstin: body.gstin || null,
+            creditLimit: body.creditLimit === undefined ? null : toDecimal(body.creditLimit),
+        }
+    });
+};
+
+export const updateCustomer = async (id: string, body: {
+    email?: string;
+    phone?: string;
+    address?: string;
+    gstin?: string;
+    creditLimit?: number | null;
+}) => {
+    return await prisma.customer.update({
+        where: { id },
+        data: {
+            email: body.email === undefined ? undefined : (body.email || null),
+            phone: body.phone === undefined ? undefined : (body.phone || null),
+            address: body.address === undefined ? undefined : (body.address || null),
+            gstin: body.gstin === undefined ? undefined : (body.gstin || null),
+            creditLimit: body.creditLimit === undefined ? undefined : (body.creditLimit === null ? null : toDecimal(body.creditLimit)),
+        },
+    });
+};
+
+export const deleteCustomer = async (id: string) => {
+    try {
+        await prisma.customer.delete({ where: { id } });
+        return true;
+    } catch {
+        return false;
+    }
+};
+
+type LedgerTransaction = {
+    type: 'INVOICE' | 'PAYMENT' | 'CREDIT_NOTE' | 'DEBIT_NOTE' | 'BAD_DEBT_PROVISION';
+    id: string;
+    date: Date;
+    description: string;
+    debit: number;
+    credit: number;
+    invoiceId?: string | null;
+};
+
+async function computeCustomerBalance(customerId: string) {
+    const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+    if (!customer) return null;
+
+    const [invoices, payments, creditNotes, debitNotes] = await Promise.all([
+        prisma.invoice.findMany({ where: { customerId }, select: { id: true, totalAmount: true, status: true } }),
+        prisma.aRPayment.findMany({ where: { customerId }, select: { id: true, amount: true } }),
+        prisma.creditNote.findMany({ where: { customerName: customer.name }, select: { id: true, amount: true } }),
+        prisma.debitNote.findMany({ where: { customerName: customer.name }, select: { id: true, amount: true } }),
+    ]);
+
+    const invoiceTotal = invoices
+        .filter((i) => i.status !== 'VOID')
+        .reduce((sum, i) => sum + Number(i.totalAmount), 0);
+    const paymentTotal = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const creditTotal = creditNotes.reduce((sum, c) => sum + Number(c.amount), 0);
+    const debitTotal = debitNotes.reduce((sum, d) => sum + Number(d.amount), 0);
+
+    return invoiceTotal + debitTotal - creditTotal - paymentTotal;
+}
+
+export const getArCustomersSummary = async (asOf?: Date) => {
+    const now = asOf ?? new Date();
+    const customers = await prisma.customer.findMany({ orderBy: { name: 'asc' } });
+
+    const invoices = await prisma.invoice.findMany({
+        where: { status: { in: ['PENDING', 'OVERDUE'] } },
+        select: { id: true, customerId: true, date: true, totalAmount: true },
+    });
+
+    const payments = await prisma.aRPayment.findMany({
+        select: { id: true, invoiceId: true, amount: true },
+    });
+
+    const paymentsByInvoice = new Map<string, number>();
+    payments.forEach((p) => {
+        if (!p.invoiceId) return;
+        paymentsByInvoice.set(p.invoiceId, (paymentsByInvoice.get(p.invoiceId) || 0) + Number(p.amount));
+    });
+
+    const summary = [] as any[];
+    for (const c of customers) {
+        const custInvoices = invoices.filter((i) => i.customerId === c.id);
+        let totalOutstanding = 0;
+        let aging30 = 0;
+        let aging60 = 0;
+        let aging90 = 0;
+
+        for (const inv of custInvoices) {
+            const paidAgainst = paymentsByInvoice.get(inv.id) || 0;
+            const outstanding = Math.max(0, Number(inv.totalAmount) - paidAgainst);
+            if (outstanding <= 0) continue;
+
+            totalOutstanding += outstanding;
+            const age = diffDays(new Date(inv.date), now);
+            if (age <= 30) aging30 += outstanding;
+            else if (age <= 60) aging60 += outstanding;
+            else aging90 += outstanding;
+        }
+
+        summary.push({
+            id: c.id,
+            name: c.name,
+            email: c.email,
+            phone: c.phone,
+            gstin: c.gstin,
+            creditLimit: c.creditLimit,
+            totalOutstanding,
+            aging: {
+                d30: aging30,
+                d60: aging60,
+                d90: aging90,
+            },
+        });
+    }
+
+    return summary;
+};
+
+export const getCustomerLedger = async (customerId: string) => {
+    const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+    if (!customer) return null;
+
+    const [invoices, payments, creditNotes, debitNotes, badDebt] = await Promise.all([
+        prisma.invoice.findMany({
+            where: { customerId },
+            select: { id: true, invoiceNumber: true, date: true, totalAmount: true, status: true },
+            orderBy: { date: 'asc' },
+        }),
+        prisma.aRPayment.findMany({
+            where: { customerId },
+            select: { id: true, invoiceId: true, date: true, amount: true, method: true, reference: true },
+            orderBy: { date: 'asc' },
+        }),
+        prisma.creditNote.findMany({
+            where: { customerName: customer.name },
+            select: { id: true, invoiceId: true, date: true, amount: true, creditNoteNumber: true },
+            orderBy: { date: 'asc' },
+        }),
+        prisma.debitNote.findMany({
+            where: { customerName: customer.name },
+            select: { id: true, invoiceId: true, date: true, amount: true, debitNoteNumber: true },
+            orderBy: { date: 'asc' },
+        }),
+        prisma.badDebtProvision.findMany({
+            where: { customerId },
+            select: { id: true, provisionDate: true, amount: true },
+            orderBy: { provisionDate: 'asc' },
+        }),
+    ]);
+
+    const tx: LedgerTransaction[] = [];
+
+    invoices
+        .filter((i) => i.status !== 'VOID')
+        .forEach((i) => {
+            tx.push({
+                type: 'INVOICE',
+                id: i.id,
+                date: i.date,
+                description: `Invoice ${i.invoiceNumber}`,
+                debit: Number(i.totalAmount),
+                credit: 0,
+                invoiceId: i.id,
+            });
+        });
+
+    payments.forEach((p) => {
+        tx.push({
+            type: 'PAYMENT',
+            id: p.id,
+            date: p.date,
+            description: `Payment${p.method ? ` (${p.method})` : ''}${p.reference ? ` - ${p.reference}` : ''}`,
+            debit: 0,
+            credit: Number(p.amount),
+            invoiceId: p.invoiceId,
+        });
+    });
+
+    creditNotes.forEach((c) => {
+        tx.push({
+            type: 'CREDIT_NOTE',
+            id: c.id,
+            date: c.date,
+            description: `Credit Note ${c.creditNoteNumber}`,
+            debit: 0,
+            credit: Number(c.amount),
+            invoiceId: c.invoiceId,
+        });
+    });
+
+    debitNotes.forEach((d) => {
+        tx.push({
+            type: 'DEBIT_NOTE',
+            id: d.id,
+            date: d.date,
+            description: `Debit Note ${d.debitNoteNumber}`,
+            debit: Number(d.amount),
+            credit: 0,
+            invoiceId: d.invoiceId,
+        });
+    });
+
+    badDebt.forEach((b) => {
+        tx.push({
+            type: 'BAD_DEBT_PROVISION',
+            id: b.id,
+            date: b.provisionDate,
+            description: 'Bad debt provision',
+            debit: 0,
+            credit: Number(b.amount),
+            invoiceId: null,
+        });
+    });
+
+    tx.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    let running = 0;
+    const transactions = tx.map((t) => {
+        running += (t.debit - t.credit);
+        return {
+            ...t,
+            balance: running,
+        };
+    });
+
+    const outstandingBalance = await computeCustomerBalance(customerId);
+
+    return {
+        customer,
+        outstandingBalance,
+        transactions,
+    };
+};
+
+export const createArPayment = async (userId: string | undefined, body: {
+    customerId: string;
+    invoiceId?: string;
+    amount: number;
+    method?: string;
+    reference?: string;
+    date?: string;
+    notes?: string;
+}) => {
+    return await prisma.aRPayment.create({
+        data: {
+            customerId: body.customerId,
+            invoiceId: body.invoiceId || null,
+            amount: toDecimal(body.amount),
+            method: body.method || null,
+            reference: body.reference || null,
+            date: body.date ? new Date(body.date) : new Date(),
+            notes: body.notes || null,
+            createdBy: userId || null,
+        }
+    });
+};
+
+export const getArFollowUps = async (filters?: { status?: string }) => {
+    return await prisma.aRFollowUp.findMany({
+        where: {
+            status: (filters?.status as any) || undefined,
+        },
+        include: { customer: true, invoice: true },
+        orderBy: [{ status: 'asc' }, { dueDate: 'asc' }, { createdAt: 'desc' }],
+    });
+};
+
+export const createArFollowUp = async (userId: string | undefined, body: {
+    customerId: string;
+    invoiceId?: string;
+    dueDate?: string;
+    notes?: string;
+}) => {
+    return await prisma.aRFollowUp.create({
+        data: {
+            customerId: body.customerId,
+            invoiceId: body.invoiceId || null,
+            dueDate: body.dueDate ? new Date(body.dueDate) : null,
+            notes: body.notes || null,
+            createdBy: userId || null,
+        },
+        include: { customer: true, invoice: true },
+    });
+};
+
+export const updateArFollowUp = async (id: string, body: {
+    status?: 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+    dueDate?: string | null;
+    notes?: string;
+}) => {
+    const status = body.status;
+    const completedAt = status === 'COMPLETED' ? new Date() : undefined;
+    return await prisma.aRFollowUp.update({
+        where: { id },
+        data: {
+            status: status as any,
+            dueDate: body.dueDate === undefined ? undefined : (body.dueDate === null ? null : new Date(body.dueDate)),
+            notes: body.notes === undefined ? undefined : (body.notes || null),
+            completedAt,
+        },
+        include: { customer: true, invoice: true },
+    });
+};
+
+export const createBadDebtProvision = async (userId: string | undefined, body: {
+    customerId: string;
+    amount: number;
+    provisionDate?: string;
+    notes?: string;
+}) => {
+    return await prisma.badDebtProvision.create({
+        data: {
+            customerId: body.customerId,
+            amount: toDecimal(body.amount),
+            provisionDate: body.provisionDate ? new Date(body.provisionDate) : new Date(),
+            notes: body.notes || null,
+            createdBy: userId || null,
+        },
+        include: { customer: true },
+    });
+};
+
+export const getCollectionMetrics = async () => {
+    const since = new Date();
+    since.setDate(since.getDate() - 30);
+
+    const [paidInvoices, totalInvoices] = await Promise.all([
+        prisma.invoice.count({ where: { status: 'PAID', date: { gte: since } } }),
+        prisma.invoice.count({ where: { date: { gte: since } } }),
+    ]);
+
+    const collectionRate = totalInvoices > 0 ? Math.round((paidInvoices / totalInvoices) * 100) : 0;
+    return {
+        last30Days: {
+            totalInvoices,
+            paidInvoices,
+            collectionRate,
+        }
+    };
 };

@@ -46,7 +46,8 @@ type RawMaterial = {
     productionBatches: { batchNumber: string }[];
     costPerUnit?: string;
     moistureContent?: string;
-    warehouseLocation?: string;
+    warehouseLocation?: { code: string; warehouse?: { name: string } };
+    legacyLocation?: string;
     notes?: string;
 };
 

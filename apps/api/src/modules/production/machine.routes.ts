@@ -45,7 +45,7 @@ const SparePartSchema = z.object({
     partNumber: z.string().min(1),
     quantityInStock: z.number().int().min(0),
     minimumStockLevel: z.number().int().min(0),
-    costPerUnit: z.number().positive().optional()
+    costPerUnit: z.number().positive()
 });
 
 // --- Routes ---

@@ -23,6 +23,9 @@ import { machineRouter } from './modules/production/machine.routes';
 import { warehouseRouter } from './modules/inventory/warehouse.routes';
 import optimizationRouter from './modules/inventory/optimization.routes';
 import reconciliationRouter from './modules/inventory/reconciliation.routes';
+import { arRouter } from './modules/ar/ar.routes';
+import { apRouter } from './modules/ap/ap.routes';
+import { budgetRouter } from './modules/ap/budgets.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 export function createApp() {
@@ -62,6 +65,9 @@ export function createApp() {
   app.use('/inventory', warehouseRouter);
   app.use('/inventory/optimization', optimizationRouter);
   app.use('/inventory/reconciliation', reconciliationRouter);
+  app.use('/ar', arRouter);
+  app.use('/ap', apRouter);
+  app.use('/ap/budgets', budgetRouter);
 
   app.use(errorHandler);
 
