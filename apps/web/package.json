@@ -19,10 +19,12 @@
     "@simplewebauthn/browser": "^13.2.2",
     "@supabase/supabase-js": "^2.91.1",
     "axios": "^1.7.9",
+    "chart.js": "^4.5.1",
     "date-fns": "^4.1.0",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^0.563.0",
     "react": "^18.3.1",
+    "react-chartjs-2": "^5.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0",
     "recharts": "^3.7.0"
