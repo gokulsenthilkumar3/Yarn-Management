@@ -10,6 +10,7 @@ import { suppliersRouter } from './modules/suppliers/suppliers.routes';
 import { rawMaterialsRouter } from './modules/raw-materials/raw-materials.routes';
 import { manufacturingRouter } from './modules/manufacturing/manufacturing.routes';
 import { billingRouter } from './modules/billing/billing.routes';
+import { invoiceTrackingRouterExport } from './modules/billing/invoice-tracking.routes';
 import { finishedGoodsRouter } from './modules/finished-goods/finished-goods.routes';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes';
 import { notificationRouter } from './modules/notifications/notification.routes';
@@ -20,6 +21,7 @@ import { procurementRouter } from './modules/procurement/procurement.routes';
 import { portalRouterExport } from './modules/portal/portal.routes';
 import { planningRouter } from './modules/production/planning.routes';
 import { machineRouter } from './modules/production/machine.routes';
+import { monitoringRouterExport } from './modules/production/monitoring.routes';
 import { warehouseRouter } from './modules/inventory/warehouse.routes';
 import optimizationRouter from './modules/inventory/optimization.routes';
 import reconciliationRouter from './modules/inventory/reconciliation.routes';
@@ -31,6 +33,8 @@ import { qualityPredictionRouter } from './modules/quality-prediction/quality-pr
 import { reportingRouter } from './modules/reporting/reporting.routes';
 import { integrationRouter } from './modules/integration/integration.routes';
 import { developerRouter } from './modules/developer/developer.routes';
+import { gdprRouter } from './modules/gdpr/gdpr.routes';
+import { adminRouter } from './modules/admin/admin.routes';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
 import { errorHandler } from './middleware/errorHandler';
@@ -63,6 +67,7 @@ export function createApp() {
   app.use('/raw-materials', rawMaterialsRouter);
   app.use('/manufacturing', manufacturingRouter);
   app.use('/billing', billingRouter);
+  app.use('/billing', invoiceTrackingRouterExport);
   app.use('/finished-goods', finishedGoodsRouter);
   app.use('/dashboard', dashboardRouter);
   app.use('/notifications', notificationRouter);
@@ -72,6 +77,7 @@ export function createApp() {
   app.use('/portal', portalRouterExport);
   app.use('/production', planningRouter);
   app.use('/production', machineRouter);
+  app.use('/production', monitoringRouterExport);
   app.use('/inventory', warehouseRouter);
   app.use('/inventory/optimization', optimizationRouter);
   app.use('/inventory/reconciliation', reconciliationRouter);
@@ -83,6 +89,8 @@ export function createApp() {
   app.use('/reporting', reportingRouter);
   app.use('/integrations', integrationRouter);
   app.use('/developer', developerRouter);
+  app.use('/gdpr', gdprRouter);
+  app.use('/admin', adminRouter);
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
   app.use(errorHandler);

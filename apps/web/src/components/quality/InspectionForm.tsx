@@ -20,6 +20,8 @@ export default function InspectionForm({ inspectionId, onClose, onSave }: Inspec
     const [loading, setLoading] = useState(false);
     const [templates, setTemplates] = useState<any[]>([]);
     const [inspectors, setInspectors] = useState<any[]>([]);
+    const [rawMaterials, setRawMaterials] = useState<any[]>([]);
+    const [productionBatches, setProductionBatches] = useState<any[]>([]);
 
     const [formData, setFormData] = useState({
         inspectionNumber: '',
@@ -35,12 +37,26 @@ export default function InspectionForm({ inspectionId, onClose, onSave }: Inspec
     });
 
     useEffect(() => {
+        fetchDropdownData();
         fetchTemplates();
         fetchInspectors();
         if (inspectionId) {
             fetchInspection();
         }
     }, [inspectionId]);
+
+    const fetchDropdownData = async () => {
+        try {
+            const [rmRes, batchRes] = await Promise.all([
+                http.get('/raw-materials?limit=100'),
+                http.get('/manufacturing/batches'),
+            ]);
+            setRawMaterials(rmRes.data.data || []);
+            setProductionBatches(batchRes.data.batches || []);
+        } catch (error) {
+            console.error('Failed to fetch dropdown data:', error);
+        }
+    };
 
     const fetchTemplates = async () => {
         try {
@@ -195,12 +211,21 @@ export default function InspectionForm({ inspectionId, onClose, onSave }: Inspec
 
                         <div className="form-group">
                             <label>Entity ID *</label>
-                            <input
-                                type="text"
+                            <select
                                 value={formData.entityId}
                                 onChange={(e) => setFormData({ ...formData, entityId: e.target.value })}
                                 required
-                            />
+                            >
+                                <option value="">Select Entity...</option>
+                                {formData.entityType === 'RAW_MATERIAL'
+                                    ? rawMaterials.map((rm) => (
+                                        <option key={rm.id} value={rm.id}>{rm.batchNo} ({rm.materialType})</option>
+                                    ))
+                                    : productionBatches.map((batch) => (
+                                        <option key={batch.id} value={batch.id}>{batch.batchNumber} ({batch.currentStage})</option>
+                                    ))
+                                }
+                            </select>
                         </div>
 
                         <div className="form-group">

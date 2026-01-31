@@ -22,7 +22,7 @@ import {
 } from '@mui/material';
 import { Delete, Add, Event, Send } from '@mui/icons-material';
 import { http } from '../../lib/http';
-import { useNotifications } from '../../context/NotificationContext';
+import { useNotification } from '../../context/NotificationContext';
 
 interface ReportSchedule {
     id: string;
@@ -39,7 +39,7 @@ export default function ReportSchedulePage() {
     const [schedules, setSchedules] = useState<ReportSchedule[]>([]);
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
-    const { showSuccess, showError } = useNotifications();
+    const { showSuccess, showError } = useNotification();
 
     const [formData, setFormData] = useState({
         name: '',

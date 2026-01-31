@@ -31,10 +31,12 @@ type NavItem = {
 const navItems: NavItem[] = [
   { label: 'Dashboard', to: '/dashboard' },
   { label: 'Procurement', to: '/procurement' },
+  { label: 'Supplier Onboarding', to: '/suppliers/onboarding' },
   { label: 'Planning', to: '/production-planning' },
   { label: 'Work Orders', to: '/work-orders' },
   { label: 'Shifts', to: '/shifts' },
   { label: 'Machines', to: '/machines' },
+  { label: 'Live Production', to: '/production/live' },
   { label: 'Manufacturing', to: '/manufacturing' },
   { label: 'Demand Forecasting', to: '/demand-forecasting' },
   { label: 'Quality Control', to: '/quality-control' },

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -38,11 +39,13 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import PaymentIcon from '@mui/icons-material/Payment';
+import TimelineIcon from '@mui/icons-material/Timeline';
 import { http } from '../lib/http';
 import { notify } from '../context/NotificationContext';
 import { FormControlLabel, Switch } from '@mui/material';
 
 export default function BillingPage() {
+  const navigate = useNavigate();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [creditNotes, setCreditNotes] = useState<any[]>([]);
   const [debitNotes, setDebitNotes] = useState<any[]>([]);
@@ -424,9 +427,13 @@ export default function BillingPage() {
         onClose={handleCloseMenu}
         PaperProps={{ elevation: 2, sx: { minWidth: 150, borderRadius: 2 } }}
       >
-        <MenuItem onClick={handlePrintInvoice}>
+        <MenuItem onClick={() => handlePrintInvoice()}>
           <ListItemIcon><PrintIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Print / Download</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => { handleCloseMenu(); navigate(`/billing/invoices/${selectedInvoice?.id}`); }}>
+          <ListItemIcon><TimelineIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>Track Status</ListItemText>
         </MenuItem>
         {selectedInvoice?.status !== 'PAID' && (
           <MenuItem onClick={() => handlePayNow(selectedInvoice)}>

@@ -6,8 +6,16 @@ import { authenticate } from '../../middleware/authenticate';
 import { requirePermission } from '../../middleware/requirePermission';
 import { createSupplierSchema, updateSupplierSchema, supplierAccountSchema } from './suppliers.schemas';
 import { encrypt, decrypt } from '../../utils/encryption';
+import { onboardingRouter } from './onboarding.routes';
+import { performanceRouterExport } from './performance.routes';
 
 export const suppliersRouter = Router();
+
+// Mount onboarding routes
+suppliersRouter.use('/onboarding', onboardingRouter);
+
+// Mount performance routes
+suppliersRouter.use('/performance', performanceRouterExport);
 
 function generateSupplierCode(): string {
   const prefix = 'SUP';

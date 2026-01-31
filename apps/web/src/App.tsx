@@ -40,6 +40,10 @@ import VendorLedgerPage from './pages/finance/VendorLedgerPage';
 import DemandForecastingPage from './pages/DemandForecastingPage';
 import { NotificationProvider } from './context/NotificationContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { SupplierOnboardingPage } from './pages/suppliers/onboarding/SupplierOnboardingPage';
+import LiveProductionDashboard from './pages/LiveProductionDashboard';
+import InvoiceDetailsPage from './pages/finance/InvoiceDetailsPage';
+import { SupplierPerformanceDashboard } from './pages/suppliers/performance/SupplierPerformanceDashboard';
 
 export default function App() {
   return (
@@ -56,12 +60,14 @@ export default function App() {
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/procurement" element={<ProcurementPage />} />
               <Route path="/production-planning" element={<ProductionPlanningPage />} />
+              <Route path="/production/live" element={<LiveProductionDashboard />} />
               <Route path="/work-orders" element={<WorkOrderPage />} />
               <Route path="/shifts" element={<ShiftManagementPage />} />
               <Route path="/machines" element={<MachineManagementPage />} />
               <Route path="/manufacturing" element={<ManufacturingPage />} />
               <Route path="/demand-forecasting" element={<DemandForecastingPage />} />
               <Route path="/billing" element={<BillingPage />} />
+              <Route path="/billing/invoices/:id" element={<InvoiceDetailsPage />} />
               <Route path="/wastage" element={<WastagePage />} />
               <Route path="/inventory" element={<InventoryPage />} />
               <Route path="/warehouse" element={<WarehousePage />} />
@@ -83,6 +89,8 @@ export default function App() {
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/quality-control" element={<QualityControlPage />} />
               <Route path="/quality-analytics" element={<QualityAnalyticsDashboard />} />
+              <Route path="/suppliers/onboarding" element={<SupplierOnboardingPage />} />
+              <Route path="/suppliers/:supplierId/performance" element={<SupplierPerformanceDashboard />} />
             </Route>
           </Route>
 

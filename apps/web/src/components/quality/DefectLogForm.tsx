@@ -42,7 +42,7 @@ export default function DefectLogForm({ defectId, onClose, onSave }: DefectLogFo
         try {
             const [rmRes, batchRes] = await Promise.all([
                 http.get('/raw-materials?limit=100'),
-                http.get('/production-batches?limit=100'),
+                http.get('/manufacturing/batches'),
             ]);
             setRawMaterials(rmRes.data.data || []);
             setProductionBatches(batchRes.data.batches || []);
