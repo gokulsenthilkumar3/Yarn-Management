@@ -257,11 +257,14 @@
   - [x] Expense reports
   - [x] Budget vs actual tracking
 
-
-#### 20. Maintenance & Bug Fixes
+### Phase 2 Fixes
+- [x] Fix Billing Service Errors
+- [x] Resolve Deployment Build Issues
 - [x] Fix Foreign Key error in Billing (Credit/Debit Notes)
 - [x] Fix TypeScript errors in AR Module
 - [x] Fix JSX syntax errors in AR Dashboard
+- [x] Fix Project Startup & Build Scripts
+
 
 ---
 
@@ -270,38 +273,44 @@
 ### I. AI/ML & Predictive Analytics
 
 #### 18. Demand Forecasting
-- [ ] ML model for demand prediction
-  - [ ] Historical sales analysis
-  - [ ] Seasonal trend detection
-  - [ ] External factor integration (festivals, market trends)
-  - [ ] Forecast accuracy tracking
-- [ ] Demand forecasting dashboard
-  - [ ] Predicted demand charts
-  - [ ] Confidence intervals
-  - [ ] Forecast vs actual comparison
-  - [ ] Forecast adjustment interface
+- [x] ML model for demand prediction
+  - [x] Historical sales analysis
+  - [x] Seasonal trend detection
+  - [x] External factor integration (festivals, market trends) [Global/Local Markets]
+  - [x] Forecast accuracy tracking
+- [x] Demand forecasting dashboard
+  - [x] Predicted demand charts
+  - [x] Confidence intervals (Metrics & Weights display)
+  - [x] Forecast vs actual comparison
+  - [x] Forecast adjustment interface
+
+#### 18a. AI Market Intelligence & News Feed [NEW]
+- [x] Business News Feed integration
+  - [x] AI-curated news aggregation (Sports, Sci-Fi, Economics impacts)
+  - [x] Contextual relevance scoring
+  - [x] Real-time feed UI near notifications
 
 #### 19. Quality Prediction
-- [ ] ML model for quality prediction
-  - [ ] Raw material quality correlation
-  - [ ] Process parameter analysis
-  - [ ] Defect prediction
-  - [ ] Quality score prediction
-- [ ] Predictive quality alerts
-  - [ ] Early warning system
-  - [ ] Recommended corrective actions
-  - [ ] Quality improvement suggestions
+- [x] ML model for quality prediction
+  - [x] Raw material quality correlation
+  - [x] Process parameter analysis
+  - [x] Defect prediction
+  - [x] Quality score prediction
+- [x] Predictive quality alerts
+  - [x] Early warning system
+  - [x] Recommended corrective actions
+  - [x] Quality improvement suggestions
 
 #### 20. Wastage Optimization
-- [ ] Wastage pattern analysis
-  - [ ] Identify wastage hotspots
-  - [ ] Root cause correlation
-  - [ ] Wastage reduction recommendations
-  - [ ] Cost impact analysis
-- [ ] Optimal process parameters
-  - [ ] Parameter optimization suggestions
-  - [ ] A/B testing framework
-  - [ ] Continuous improvement tracking
+- [x] Wastage pattern analysis
+  - [x] Identify wastage hotspots
+  - [x] Root cause correlation
+  - [x] Wastage reduction recommendations
+  - [x] Cost impact analysis
+- [x] Optimal process parameters
+  - [x] Parameter optimization suggestions
+  - [x] A/B testing framework
+  - [x] Continuous improvement tracking
 
 ### J. Reporting & Business Intelligence
 
@@ -536,7 +545,9 @@
   - [ ] Machine utilization
 - [ ] Production alerts
   - [ ] Delay alerts
-  - [ ] Quality issue alerts
+  - [x] Debugging Missing Tabs/Errors
+    - [x] Investigate WastagePage error <!-- id: 373 -->
+    - [x] Fix Backend Routes & Restart Server <!-- id: 374 -->
   - [ ] Machine breakdown alerts
   - [ ] Material shortage alerts
 
@@ -779,7 +790,6 @@
 ---
 
 ## 📝 Notes
-
 - **Prioritization**: Tasks are organized by business impact and implementation complexity
 - **Dependencies**: Some tasks depend on infrastructure setup (Redis, MinIO, etc.)
 - **Flexibility**: Task order can be adjusted based on customer feedback and market demands

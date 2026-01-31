@@ -19,6 +19,7 @@ import { http } from '../lib/http';
 import { clearAccessToken } from '../lib/auth';
 import GlobalSearch from './GlobalSearch';
 import NotificationCenter from './NotificationCenter';
+import NewsFeedWidget from './widgets/NewsFeedWidget';
 
 const drawerWidth = 240;
 
@@ -35,6 +36,7 @@ const navItems: NavItem[] = [
   { label: 'Shifts', to: '/shifts' },
   { label: 'Machines', to: '/machines' },
   { label: 'Manufacturing', to: '/manufacturing' },
+  { label: 'Demand Forecasting', to: '/demand-forecasting' },
   { label: 'Quality Control', to: '/quality-control' },
   { label: 'Quality Analytics', to: '/quality-analytics' },
   { label: 'Wastage', to: '/wastage' },
@@ -125,6 +127,7 @@ export default function AppLayout() {
             <GlobalSearch />
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <NewsFeedWidget />
             <NotificationCenter />
             <Button
               color="inherit"
