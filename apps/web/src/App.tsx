@@ -10,7 +10,9 @@ import ManufacturingPage from './pages/ManufacturingPage';
 import BillingPage from './pages/BillingPage';
 import WastagePage from './pages/WastagePage';
 import InventoryPage from './pages/InventoryPage';
-import ReportsPage from './pages/ReportsPage';
+import ReportingLayout from './pages/reporting/ReportingLayout';
+import IntegrationPage from './pages/IntegrationPage';
+import DeveloperPage from './pages/DeveloperPage';
 import UsersPage from './pages/UsersPage';
 import SettingsPage from './pages/SettingsPage';
 import QualityControlPage from './pages/QualityControlPage';
@@ -70,7 +72,9 @@ export default function App() {
               <Route path="/warehouse/optimization" element={<InventoryOptimizationPage />} />
               <Route path="/warehouse/reconciliation" element={<InventoryReconciliationPage />} />
               <Route path="/warehouse/reconciliation/:id" element={<ReconciliationWorkspacePage />} />
-              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/reports" element={<ReportingLayout />} />
+              <Route path="/integrations" element={<IntegrationPage />} />
+              <Route path="/developer" element={<DeveloperPage />} />
               <Route path="/finance/ar" element={<AccountsReceivablePage />} />
               <Route path="/finance/ledger/:customerId" element={<CustomerLedgerPage />} />
               <Route path="/finance/ap" element={<AccountsPayablePage />} />

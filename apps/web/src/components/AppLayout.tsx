@@ -49,6 +49,8 @@ const navItems: NavItem[] = [
   { label: 'Accounts Receivable', to: '/finance/ar' },
   { label: 'Accounts Payable', to: '/finance/ap' },
   { label: 'Reports', to: '/reports' },
+  { label: 'Integrations', to: '/integrations' },
+  { label: 'Developer', to: '/developer' },
   { label: 'Users', to: '/users' },
   { label: 'Settings', to: '/settings' },
 ];

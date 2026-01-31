@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { demandForecastingService } from './demand-forecasting.service';
+import { MarketIntelligenceService } from './market-intelligence.service';
 
 export class DemandForecastingController {
     async getForecasts(req: Request, res: Response) {
@@ -24,39 +25,11 @@ export class DemandForecastingController {
 
     async getNews(req: Request, res: Response) {
         try {
-            // Mock News Data (Simulation Service)
-            const news = [
-                {
-                    id: '1',
-                    title: 'Cricket World Cup driving Polyester Demand',
-                    summary: 'Recent trends show a spike in jersey manufacturing in Tiruppur due to upcoming World Cup.',
-                    category: 'Sports',
-                    relevanceScore: 95,
-                    sentiment: 'POSITIVE',
-                    businessImpact: 'Expect 15% increase in Polyester yarn orders.',
-                    publishedAt: new Date().toISOString()
-                },
-                {
-                    id: '2',
-                    title: 'New Sci-Fi Blockbuster "CyberWeave" Released',
-                    summary: 'The aesthetic of the new hit movie is influencing fashion trends towards metallic and neon yarns.',
-                    category: 'Sci-Fi',
-                    relevanceScore: 88,
-                    sentiment: 'POSITIVE',
-                    businessImpact: 'Specific demand for metallic threads likely to rise.',
-                    publishedAt: new Date().toISOString()
-                },
-                {
-                    id: '3',
-                    title: 'Cotton Prices Stabilizing in Indian Markets',
-                    summary: 'Ministry of Textiles reports a stable supply chain for Q3.',
-                    category: 'Economics',
-                    relevanceScore: 90,
-                    sentiment: 'NEUTRAL',
-                    businessImpact: 'Cost of goods sold expected to remain steady.',
-                    publishedAt: new Date().toISOString()
-                }
-            ];
+            const userId = req.userId;
+            if (!userId) {
+                return res.status(401).json({ error: 'Unauthorized' });
+            }
+            const news = await MarketIntelligenceService.getCuratedInsights(userId);
             res.json(news);
         } catch (error) {
             console.error('Error fetching news:', error);

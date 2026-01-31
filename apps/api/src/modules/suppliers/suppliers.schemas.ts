@@ -70,3 +70,17 @@ export const createSupplierSchema = z.object({
 });
 
 export const updateSupplierSchema = createSupplierSchema.partial();
+
+export const supplierAccountSchema = z.object({
+  bankAccountHolderName: z.string().nullish(),
+  bankName: z.string().nullish(),
+  bankAccountNumber: z.string().nullish(),
+  bankAccountType: z.string().nullish(),
+  bankIfscCode: z.string().nullish(),
+  bankBranchName: z.string().nullish(),
+  bankUpiId: z.string().nullish(),
+  panNumber: z.string().nullish(),
+  gstNumber: z.string().nullish(),
+  tdsRate: z.number().nullish(),
+});
+
