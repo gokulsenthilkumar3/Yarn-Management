@@ -26,6 +26,7 @@ const envSchema = z.object({
 
   ADMIN_EMAIL: z.string().email().default('admin@example.com'),
   ADMIN_PASSWORD: z.string().min(12).default('admin123456!'),
+  ENCRYPTION_SECRET: z.string().length(32).default('a-very-secret-key-32-chars-long!'),
 });
 
 export const env = envSchema.parse(process.env);

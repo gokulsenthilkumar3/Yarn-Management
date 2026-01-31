@@ -28,20 +28,26 @@ import { apRouter } from './modules/ap/ap.routes';
 import { budgetRouter } from './modules/ap/budgets.routes';
 import { demandForecastingRouter } from './modules/demand-forecasting/demand-forecasting.routes';
 import { qualityPredictionRouter } from './modules/quality-prediction/quality-prediction.routes';
+import { reportingRouter } from './modules/reporting/reporting.routes';
+import { integrationRouter } from './modules/integration/integration.routes';
+import { developerRouter } from './modules/developer/developer.routes';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './config/swagger';
 import { errorHandler } from './middleware/errorHandler';
+import { requestLogger } from './middleware/requestLogger';
 
 export function createApp() {
   // Application Entry Point
   const app = express();
 
-  app.use(helmet());
-
   app.use(
     cors({
-      origin: env.CORS_ORIGIN,
+      origin: [env.CORS_ORIGIN, 'http://localhost:5174', 'http://localhost:5175'],
       credentials: true,
     })
   );
+  app.use(requestLogger);
+  app.use(helmet());
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
 
@@ -74,6 +80,10 @@ export function createApp() {
   app.use('/ap/budgets', budgetRouter);
   app.use('/demand-forecasting', demandForecastingRouter);
   app.use('/quality-prediction', qualityPredictionRouter);
+  app.use('/reporting', reportingRouter);
+  app.use('/integrations', integrationRouter);
+  app.use('/developer', developerRouter);
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
   app.use(errorHandler);
 

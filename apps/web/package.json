@@ -16,6 +16,7 @@
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^6.2.1",
     "@mui/material": "^6.2.1",
+    "@simplewebauthn/browser": "^13.2.2",
     "@supabase/supabase-js": "^2.91.1",
     "axios": "^1.7.9",
     "date-fns": "^4.1.0",

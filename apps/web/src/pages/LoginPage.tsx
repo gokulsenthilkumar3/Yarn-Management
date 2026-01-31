@@ -5,6 +5,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { http } from '../lib/http';
 import { setAccessToken } from '../lib/auth';
 
+import { startAuthentication } from '@simplewebauthn/browser';
+import FingerprintIcon from '@mui/icons-material/Fingerprint';
+
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation() as any;
@@ -32,6 +35,26 @@ export default function LoginPage() {
       setLoading(false);
     }
   }
+
+  const handlePasskeyLogin = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data: options } = await http.post('/auth/webauthn/login/start');
+      const authResp = await startAuthentication(options);
+      const { data } = await http.post('/auth/webauthn/login/finish', authResp);
+
+      const token = data?.accessToken as string;
+      if (!token) throw new Error('No access token returned');
+      setAccessToken(token);
+      navigate(from, { replace: true });
+    } catch (err: any) {
+      console.error(err);
+      setError('Passkey authentication failed. Please try again or use password.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Container maxWidth="sm">
@@ -63,7 +86,14 @@ export default function LoginPage() {
             {loading ? 'Signing in…' : 'Sign in'}
           </Button>
 
-
+          <Button
+            variant="outlined"
+            startIcon={<FingerprintIcon />}
+            onClick={handlePasskeyLogin}
+            disabled={loading}
+          >
+            Sign in with Passkey
+          </Button>
         </Box>
       </Box>
     </Container>

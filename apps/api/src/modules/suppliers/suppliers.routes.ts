@@ -4,7 +4,8 @@ import { z } from 'zod';
 import { prisma } from '../../prisma/client';
 import { authenticate } from '../../middleware/authenticate';
 import { requirePermission } from '../../middleware/requirePermission';
-import { createSupplierSchema, updateSupplierSchema } from './suppliers.schemas';
+import { createSupplierSchema, updateSupplierSchema, supplierAccountSchema } from './suppliers.schemas';
+import { encrypt, decrypt } from '../../utils/encryption';
 
 export const suppliersRouter = Router();
 
@@ -121,6 +122,68 @@ suppliersRouter.delete(
       const { id } = req.params;
       await prisma.supplier.delete({ where: { id } });
       return res.json({ ok: true });
+    } catch (e) {
+      return next(e);
+    }
+  }
+);
+// --- Supplier Account (Encrypted) ---
+
+suppliersRouter.get(
+  '/:id/account',
+  authenticate,
+  requirePermission('suppliers.read'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params;
+      const account = await prisma.supplierAccount.findUnique({
+        where: { supplierId: id }
+      });
+
+      if (!account) return res.json({ account: null });
+
+      // Decrypt sensitive fields
+      const decryptedAccount = {
+        ...account,
+        bankAccountNumber: account.bankAccountNumber ? decrypt(account.bankAccountNumber) : null,
+        bankUpiId: account.bankUpiId ? decrypt(account.bankUpiId) : null,
+        panNumber: account.panNumber ? decrypt(account.panNumber) : null,
+      };
+
+      return res.json({ account: decryptedAccount });
+    } catch (e) {
+      return next(e);
+    }
+  }
+);
+
+suppliersRouter.put(
+  '/:id/account',
+  authenticate,
+  requirePermission('suppliers.update'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params;
+      const body = supplierAccountSchema.parse(req.body);
+
+      const updateData = {
+        ...body,
+        // Encrypt sensitive fields
+        bankAccountNumber: body.bankAccountNumber ? encrypt(body.bankAccountNumber) : undefined,
+        bankUpiId: body.bankUpiId ? encrypt(body.bankUpiId) : undefined,
+        panNumber: body.panNumber ? encrypt(body.panNumber) : undefined,
+      };
+
+      const account = await prisma.supplierAccount.upsert({
+        where: { supplierId: id },
+        create: {
+          ...updateData as any,
+          supplierId: id,
+        },
+        update: updateData as any,
+      });
+
+      return res.json({ account });
     } catch (e) {
       return next(e);
     }
