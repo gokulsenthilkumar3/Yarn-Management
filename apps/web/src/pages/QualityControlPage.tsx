@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle, AlertTriangle, FileText, ClipboardList, FlaskConical } from 'lucide-react';
+import { CheckCircle, AlertTriangle, FileText, ClipboardList, FlaskConical, BrainCircuit } from 'lucide-react';
 import { useTheme } from '@mui/material/styles';
 import InspectionList from '../components/quality/InspectionList';
 import InspectionForm from '../components/quality/InspectionForm';
@@ -8,9 +8,10 @@ import QualityTestForm from '../components/quality/QualityTestForm';
 import DefectLogList from '../components/quality/DefectLogList';
 import DefectLogForm from '../components/quality/DefectLogForm';
 import InspectionTemplateManager from '../components/quality/InspectionTemplateManager';
+import QualityPredictionView from '../components/quality/QualityPredictionView';
 
 export default function QualityControlPage() {
-    const [activeTab, setActiveTab] = useState<'inspections' | 'tests' | 'defects' | 'templates'>('inspections');
+    const [activeTab, setActiveTab] = useState<'inspections' | 'tests' | 'defects' | 'templates' | 'predictions'>('inspections');
     const [showInspectionForm, setShowInspectionForm] = useState(false);
     const [editingInspection, setEditingInspection] = useState<any>(null);
     const [showTestForm, setShowTestForm] = useState(false);
@@ -51,6 +52,7 @@ export default function QualityControlPage() {
                     { id: 'tests', icon: FlaskConical, label: 'Quality Tests' },
                     { id: 'defects', icon: AlertTriangle, label: 'Defect Logs' },
                     { id: 'templates', icon: FileText, label: 'Templates' },
+                    { id: 'predictions', icon: BrainCircuit, label: 'AI Prediction' },
                 ].map(tab => {
                     const Icon = tab.icon;
                     const isActive = activeTab === tab.id;
@@ -72,6 +74,7 @@ export default function QualityControlPage() {
                 {activeTab === 'tests' && <QualityTestList key={refreshKey} onCreate={handleCreateTest} onEdit={handleEditTest} />}
                 {activeTab === 'defects' && <DefectLogList key={refreshKey} onCreate={handleCreateDefect} onEdit={handleEditDefect} />}
                 {activeTab === 'templates' && <InspectionTemplateManager key={refreshKey} />}
+                {activeTab === 'predictions' && <QualityPredictionView />}
             </div>
 
             {showInspectionForm && <InspectionForm inspectionId={editingInspection?.id} onClose={handleCloseInspectionForm} onSave={handleRefresh} />}

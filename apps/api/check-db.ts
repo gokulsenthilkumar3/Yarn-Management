@@ -1,15 +1,15 @@
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
-async function main() {
-    const batches = await prisma.productionBatch.count();
-    const rms = await prisma.rawMaterial.count();
-    const inStock = await prisma.rawMaterial.count({ where: { status: 'IN_STOCK' } });
-    const suppliers = await prisma.supplier.count();
+import { prisma } from './src/prisma/client';
 
-    console.log('--- DB STATS ---');
-    console.log('Suppliers:', suppliers);
-    console.log('Raw Materials:', rms, '(In Stock:', inStock, ')');
-    console.log('Batches:', batches);
-    console.log('----------------');
+async function check() {
+    try {
+        console.log('Checking DB connection...');
+        const count = await prisma.user.count();
+        console.log(`Connection successful. User count: ${count}`);
+        process.exit(0);
+    } catch (err) {
+        console.error('Connection failed:', err);
+        process.exit(1);
+    }
 }
-main().catch(console.error).finally(() => prisma.$disconnect());
+
+check();

@@ -35,6 +35,7 @@ import AccountsReceivablePage from './pages/finance/AccountsReceivablePage';
 import CustomerLedgerPage from './pages/finance/CustomerLedgerPage';
 import AccountsPayablePage from './pages/finance/AccountsPayablePage';
 import VendorLedgerPage from './pages/finance/VendorLedgerPage';
+import DemandForecastingPage from './pages/DemandForecastingPage';
 import { NotificationProvider } from './context/NotificationContext';
 import { ThemeProvider } from './context/ThemeContext';
 
@@ -57,6 +58,7 @@ export default function App() {
               <Route path="/shifts" element={<ShiftManagementPage />} />
               <Route path="/machines" element={<MachineManagementPage />} />
               <Route path="/manufacturing" element={<ManufacturingPage />} />
+              <Route path="/demand-forecasting" element={<DemandForecastingPage />} />
               <Route path="/billing" element={<BillingPage />} />
               <Route path="/wastage" element={<WastagePage />} />
               <Route path="/inventory" element={<InventoryPage />} />

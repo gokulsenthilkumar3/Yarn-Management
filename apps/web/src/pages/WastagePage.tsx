@@ -14,17 +14,32 @@ import {
   TableRow,
   Paper,
   Chip,
-  LinearProgress
+  LinearProgress,
+  Tabs,
+  Tab,
+  Alert,
+  AlertTitle
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import RecyclingIcon from '@mui/icons-material/Recycling';
+import LightbulbIcon from '@mui/icons-material/Lightbulb';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, Cell, LineChart, Line
+} from 'recharts';
 import { http } from '../lib/http';
 import WastageForm from '../components/manufacturing/WastageForm';
 
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+
 export default function WastagePage() {
+  const [activeTab, setActiveTab] = useState(0);
   const [logs, setLogs] = useState<any[]>([]);
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [recommendations, setRecommendations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [openForm, setOpenForm] = useState(false);
   const [stats, setStats] = useState({
@@ -33,20 +48,28 @@ export default function WastagePage() {
     mostWastefulStage: '-'
   });
 
-  async function load() {
+  async function loadData() {
     setLoading(true);
     try {
-      const res = await http.get('/manufacturing/wastage');
-      const data = res.data.wastage;
+      // Parallel fetch
+      const [logsRes, analyticsRes, optimizeRes] = await Promise.all([
+        http.get('/manufacturing/wastage'),
+        http.get('/manufacturing/wastage/analytics-v2'),
+        http.get('/manufacturing/wastage/optimization-v2')
+      ]);
+
+      const data = logsRes.data?.wastage || [];
       setLogs(data);
+      setAnalytics(analyticsRes.data?.analytics || null);
+      setRecommendations(optimizeRes.data?.recommendations || []);
 
       // Calculate Stats
-      const total = data.reduce((sum: number, log: any) => sum + Number(log.quantity), 0);
-
-      // Find most wasteful stage
+      const total = data.reduce((sum: number, log: any) => sum + Number(log.quantity || 0), 0);
       const stageMap: Record<string, number> = {};
       data.forEach((log: any) => {
-        stageMap[log.stage] = (stageMap[log.stage] || 0) + Number(log.quantity);
+        if (log.stage) {
+          stageMap[log.stage] = (stageMap[log.stage] || 0) + Number(log.quantity || 0);
+        }
       });
       let maxStage = '-';
       let maxVal = 0;
@@ -56,7 +79,6 @@ export default function WastagePage() {
           maxStage = stage;
         }
       });
-
       setStats({
         total,
         count: data.length,
@@ -70,7 +92,7 @@ export default function WastagePage() {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { loadData(); }, []);
 
   const KPICard = ({ title, value, icon, color }: any) => (
     <Card sx={{ height: '100%', borderRadius: 2, boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
@@ -94,12 +116,13 @@ export default function WastagePage() {
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => setOpenForm(true)}
-          color="error" // Red primarily for wastage focus
+          color="error"
         >
           Log Wastage
         </Button>
       </Box>
 
+      {/* KPI Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} md={4}>
           <KPICard
@@ -127,48 +150,154 @@ export default function WastagePage() {
         </Grid>
       </Grid>
 
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}>
+          <Tab label="Wastage Logs" />
+          <Tab label="Analysis & Optimization" />
+        </Tabs>
+      </Box>
+
       {loading && <LinearProgress sx={{ mb: 2 }} />}
 
-      <Paper sx={{ width: '100%', overflow: 'hidden', borderRadius: 2 }}>
-        <TableContainer>
-          <Table size="medium">
-            <TableHead sx={{ bgcolor: '#f8fafc' }}>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Batch No</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Stage</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Type</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Quantity (kg)</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Reason</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {logs.length === 0 && !loading ? (
+      {/* Tab 0: Logs Table */}
+      {activeTab === 0 && (
+        <Paper sx={{ width: '100%', overflow: 'hidden', borderRadius: 2 }}>
+          <TableContainer>
+            <Table size="medium">
+              <TableHead sx={{ bgcolor: '#f8fafc' }}>
                 <TableRow>
-                  <TableCell colSpan={6} align="center">No wastage logged yet</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Batch No</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Stage</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Type</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Quantity (kg)</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Reason</TableCell>
                 </TableRow>
-              ) : (
-                logs.map((log) => (
-                  <TableRow key={log.id} hover>
-                    <TableCell>{new Date(log.loggedAt).toLocaleString()}</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>{log.batch?.batchNumber || 'Unknown'}</TableCell>
-                    <TableCell><Chip label={log.stage} size="small" variant="outlined" /></TableCell>
-                    <TableCell>{log.wasteType}</TableCell>
-                    <TableCell sx={{ color: 'error.main', fontWeight: 'bold' }}>{Number(log.quantity).toFixed(2)}</TableCell>
-                    <TableCell>{log.reason || '-'}</TableCell>
+              </TableHead>
+              <TableBody>
+                {(!logs || logs.length === 0) && !loading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center">No wastage logged yet</TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
+                ) : (
+                  logs.map((log) => (
+                    <TableRow key={log.id} hover>
+                      <TableCell>{new Date(log.loggedAt).toLocaleString()}</TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>{log.batch?.batchNumber || 'Unknown'}</TableCell>
+                      <TableCell><Chip label={log.stage} size="small" variant="outlined" /></TableCell>
+                      <TableCell>{log.wasteType}</TableCell>
+                      <TableCell sx={{ color: 'error.main', fontWeight: 'bold' }}>{Number(log.quantity).toFixed(2)}</TableCell>
+                      <TableCell>{log.reason || '-'}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
 
-      <WastageForm
-        open={openForm}
-        onClose={() => setOpenForm(false)}
-        onSave={load}
-      />
+      {/* Tab 1: Analysis & Optimization */}
+      {activeTab === 1 && analytics && (
+        <Grid container spacing={3}>
+          {/* Charts Row */}
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ p: 3, borderRadius: 2, height: 400 }}>
+              <Typography variant="h6" gutterBottom>Wastage by Stage</Typography>
+              <Box sx={{ height: 300, width: '100%' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={analytics.byStage}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="stage" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="quantity" fill="#8884d8" name="Quantity (kg)" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Box>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ p: 3, borderRadius: 2, height: 400 }}>
+              <Typography variant="h6" gutterBottom>Type Distribution</Typography>
+              <Box sx={{ height: 300, width: '100%' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={analytics.byType}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="quantity"
+                      nameKey="type"
+                      label
+                    >
+                      {analytics.byType.map((entry: any, index: number) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </Box>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12}>
+            <Paper sx={{ p: 3, borderRadius: 2, height: 400 }}>
+              <Typography variant="h6" gutterBottom>7-Day Trend</Typography>
+              <Box sx={{ height: 280, width: '100%' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={analytics.trend}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="quantity" stroke="#ef4444" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </Box>
+            </Paper>
+          </Grid>
+
+          {/* Recommendations Section */}
+          <Grid item xs={12}>
+            <Typography variant="h5" sx={{ mb: 2, mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <LightbulbIcon color="warning" /> Smart Recommendations
+            </Typography>
+            <Grid container spacing={2}>
+              {recommendations.map((rec: any, idx) => (
+                <Grid item xs={12} md={6} key={idx}>
+                  <Alert
+                    severity={rec.type.toLowerCase() === 'critical' ? 'error' : rec.type.toLowerCase()}
+                    variant="outlined"
+                    sx={{ borderRadius: 2 }}
+                    action={
+                      <Button color="inherit" size="small">
+                        Apply Fix
+                      </Button>
+                    }
+                  >
+                    <AlertTitle sx={{ fontWeight: 'bold' }}>{rec.message}</AlertTitle>
+                    <Typography variant="body2" sx={{ mb: 1 }}>
+                      <strong>Action:</strong> {rec.action}
+                    </Typography>
+                    <Typography variant="caption" sx={{ bgcolor: 'action.hover', px: 1, py: 0.5, borderRadius: 1 }}>
+                      <TrendingUpIcon fontSize="inherit" sx={{ mr: 0.5, verticalAlign: 'text-bottom' }} />
+                      Impact: {rec.impact}
+                    </Typography>
+                  </Alert>
+                </Grid>
+              ))}
+            </Grid>
+          </Grid>
+        </Grid>
+      )}
+
+      <WastageForm open={openForm} onClose={() => setOpenForm(false)} onSave={loadData} />
     </Box>
   );
 }

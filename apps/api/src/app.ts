@@ -26,12 +26,16 @@ import reconciliationRouter from './modules/inventory/reconciliation.routes';
 import { arRouter } from './modules/ar/ar.routes';
 import { apRouter } from './modules/ap/ap.routes';
 import { budgetRouter } from './modules/ap/budgets.routes';
+import { demandForecastingRouter } from './modules/demand-forecasting/demand-forecasting.routes';
+import { qualityPredictionRouter } from './modules/quality-prediction/quality-prediction.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 export function createApp() {
+  // Application Entry Point
   const app = express();
 
   app.use(helmet());
+
   app.use(
     cors({
       origin: env.CORS_ORIGIN,
@@ -68,6 +72,8 @@ export function createApp() {
   app.use('/ar', arRouter);
   app.use('/ap', apRouter);
   app.use('/ap/budgets', budgetRouter);
+  app.use('/demand-forecasting', demandForecastingRouter);
+  app.use('/quality-prediction', qualityPredictionRouter);
 
   app.use(errorHandler);
 

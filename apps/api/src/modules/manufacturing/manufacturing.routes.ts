@@ -11,6 +11,113 @@ import {
 } from './manufacturing.schemas';
 
 export const manufacturingRouter = Router();
+console.log('--- MANUFACTURING ROUTES v2 LOADED ---');
+
+
+
+
+// Wastage Analytics
+manufacturingRouter.get('/wastage/analytics-v2', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const logs = await prisma.wastageLog.findMany({
+            orderBy: { loggedAt: 'desc' }
+        });
+
+        // 1. By Stage
+        const byStage = logs.reduce((acc: any, log) => {
+            acc[log.stage] = (acc[log.stage] || 0) + Number(log.quantity);
+            return acc;
+        }, {});
+
+        // 2. By Type
+        const byType = logs.reduce((acc: any, log) => {
+            acc[log.wasteType] = (acc[log.wasteType] || 0) + Number(log.quantity);
+            return acc;
+        }, {});
+
+        // 3. Trend (Last 7 days)
+        const trendMap: any = {};
+        logs.forEach(log => {
+            const date = new Date(log.loggedAt).toISOString().split('T')[0];
+            trendMap[date] = (trendMap[date] || 0) + Number(log.quantity);
+        });
+        const trend = Object.keys(trendMap).sort().slice(-7).map(date => ({
+            date,
+            quantity: trendMap[date]
+        }));
+
+        return res.json({
+            analytics: {
+                byStage: Object.entries(byStage).map(([stage, qty]) => ({ stage, quantity: qty })),
+                byType: Object.entries(byType).map(([type, qty]) => ({ type, quantity: qty })),
+                trend
+            }
+        });
+    } catch (e) {
+        return next(e);
+    }
+});
+
+// Wastage Optimization Recommendations
+manufacturingRouter.get('/wastage/optimization-v2', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const logs = await prisma.wastageLog.findMany();
+
+        // Analyze patterns
+        const stageTotals: any = {};
+        logs.forEach(log => {
+            stageTotals[log.stage] = (stageTotals[log.stage] || 0) + Number(log.quantity);
+        });
+
+        const recommendations = [];
+
+        // Heuristic Rules
+        if ((stageTotals['SPINNING'] || 0) > 50) {
+            recommendations.push({
+                type: 'CRITICAL',
+                stage: 'SPINNING',
+                message: 'High wastage detected in Spinning stage.',
+                action: 'Inspect Ring Frame settings and traveler replacement schedule.',
+                impact: 'Potential 15% cost reduction.'
+            });
+        }
+
+        if ((stageTotals['CARDING'] || 0) > 40) {
+            recommendations.push({
+                type: 'WARNING',
+                stage: 'CARDING',
+                message: 'Carding waste is above benchmark.',
+                action: 'Check flat gauge settings and wire condition.',
+                impact: 'Improve sliver evenness.'
+            });
+        }
+
+        if ((stageTotals['WINDING'] || 0) > 30) {
+            recommendations.push({
+                type: 'INFO',
+                stage: 'WINDING',
+                message: 'Winding hard waste is increasing.',
+                action: 'Review tensioner calibration.',
+                impact: 'Reduce yarn breakage in warping.'
+            });
+        }
+
+        // Catch-all if low data
+        if (recommendations.length === 0) {
+            recommendations.push({
+                type: 'SUCCESS',
+                message: 'Wastage levels are currently within optimal limits.',
+                action: 'Continue current maintenance schedule.',
+                impact: 'Optimal operation.'
+            });
+        }
+
+        return res.json({ recommendations });
+
+    } catch (e) {
+        return next(e);
+    }
+});
 
 // Get Batches (Kanban)
 manufacturingRouter.get('/batches', authenticate, async (req: Request, res: Response, next: NextFunction) => {
@@ -188,11 +295,6 @@ manufacturingRouter.post('/batches/:id/complete', authenticate, async (req: Requ
                 endDate: new Date(),
             }
         });
-
-        // Deduct from Raw Material Stock (Assume consumed fully or partially)
-        // Simplified: Mark RM as CONSUMED if batch input matches RM quantity, or reduce it.
-        // For this MVP, we won't auto-deduct RM to keep it simple, or we allow specific deduction logic.
-        // Let's just update the specific RM status if it was fully used.
 
         return res.json({ ok: true, finishedGood });
     } catch (e) {
