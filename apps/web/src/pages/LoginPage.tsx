@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Box, Button, Container, TextField, Typography } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { http } from '../lib/http';
-import { setAccessToken } from '../lib/auth';
+import { useAuth } from '../context/AuthContext';
 
 import { startAuthentication } from '@simplewebauthn/browser';
 import FingerprintIcon from '@mui/icons-material/Fingerprint';
@@ -12,6 +12,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation() as any;
   const from = location?.state?.from?.pathname ?? '/dashboard';
+  const { login } = useAuth();
 
   const [email, setEmail] = useState('admin@example.com');
   const [password, setPassword] = useState('admin123456!');
@@ -27,7 +28,7 @@ export default function LoginPage() {
       const res = await http.post('/auth/login', { email, password });
       const token = res.data?.accessToken as string;
       if (!token) throw new Error('No access token returned');
-      setAccessToken(token);
+      login(token);
       navigate(from, { replace: true });
     } catch (err: any) {
       setError(err?.response?.data?.message ?? err?.message ?? 'Login failed');
@@ -46,7 +47,7 @@ export default function LoginPage() {
 
       const token = data?.accessToken as string;
       if (!token) throw new Error('No access token returned');
-      setAccessToken(token);
+      login(token);
       navigate(from, { replace: true });
     } catch (err: any) {
       console.error(err);

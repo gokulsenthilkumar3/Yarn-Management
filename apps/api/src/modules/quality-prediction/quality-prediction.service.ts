@@ -21,7 +21,7 @@ export class QualityPredictionService {
         });
 
         // Calculate baseline from performance
-        let baseScore = performance?.avgQualityRating ? Number(performance.avgQualityRating) * 20 : 85; // 0-5 scale to 0-100
+        const baseScore = performance?.avgQualityRating ? Number(performance.avgQualityRating) * 20 : 85; // 0-5 scale to 0-100
 
         // Calculate historical average
         let historicalAvg = baseScore;
@@ -85,7 +85,7 @@ export class QualityPredictionService {
         const prediction = await this.predictBatchQuality(batchId);
         const score = prediction.predictedScore;
 
-        let possibleDefects = [];
+        const possibleDefects = [];
         if (score < 80) possibleDefects.push('Unevenness');
         if (score < 70) possibleDefects.push('Tenacity Loss');
         if (prediction.inputQuality < 80) possibleDefects.push('Raw Material Contamination');

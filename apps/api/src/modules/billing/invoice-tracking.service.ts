@@ -95,7 +95,7 @@ export async function createReminder(
  * Get invoice timeline/tracking info
  */
 export async function getInvoiceTracking(invoiceId: string) {
-    const invoice = await prisma.invoice.findUnique({
+    return await prisma.invoice.findUnique({
         where: { id: invoiceId },
         select: {
             id: true,
@@ -111,6 +111,4 @@ export async function getInvoiceTracking(invoiceId: string) {
             },
         },
     });
-
-    return invoice;
 }

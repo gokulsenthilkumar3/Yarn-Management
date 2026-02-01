@@ -37,6 +37,7 @@ const navItems: NavItem[] = [
   { label: 'Shifts', to: '/shifts' },
   { label: 'Machines', to: '/machines' },
   { label: 'Live Production', to: '/production/live' },
+  { label: 'Production Efficiency', to: '/production/efficiency' },
   { label: 'Manufacturing', to: '/manufacturing' },
   { label: 'Demand Forecasting', to: '/demand-forecasting' },
   { label: 'Quality Control', to: '/quality-control' },
@@ -47,7 +48,14 @@ const navItems: NavItem[] = [
   { label: 'Scanner', to: '/warehouse/scanner' },
   { label: 'Optimization', to: '/warehouse/optimization' },
   { label: 'Reconciliation', to: '/warehouse/reconciliation' },
+  { label: 'Customers', to: '/customers' },
+  { label: 'Sales Orders', to: '/sales/orders' },
   { label: 'Billing', to: '/billing' },
+  { label: 'Employees', to: '/hr/employees' },
+  { label: 'Payroll', to: '/hr/payroll' },
+  { label: 'Documents', to: '/documents' },
+  { label: 'Communication', to: '/communication' },
+  { label: 'Support', to: '/support' },
   { label: 'Accounts Receivable', to: '/finance/ar' },
   { label: 'Accounts Payable', to: '/finance/ap' },
   { label: 'Reports', to: '/reports' },
@@ -57,7 +65,10 @@ const navItems: NavItem[] = [
   { label: 'Settings', to: '/settings' },
 ];
 
+import { useAppSettings } from '../context/AppSettingsContext';
+
 export default function AppLayout() {
+  const { isModuleEnabled, generalSettings } = useAppSettings();
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -79,7 +90,24 @@ export default function AppLayout() {
   const drawerContent = (
     <Box sx={{ overflow: 'auto' }}>
       <List>
-        {navItems.map((item) => (
+        {navItems.filter(item => {
+          if (['/dashboard', '/users', '/settings', '/support'].includes(item.to)) return true;
+          if (item.to.startsWith('/procurement') || item.to.startsWith('/suppliers')) return isModuleEnabled('procurement');
+          if (['/production', '/work-orders', '/shifts', '/machines', '/manufacturing', '/wastage', '/demand-forecasting'].some(p => item.to.startsWith(p))) return isModuleEnabled('manufacturing');
+          if (item.to.startsWith('/quality')) return isModuleEnabled('quality');
+          if (item.to.startsWith('/inventory')) return isModuleEnabled('inventory');
+          if (item.to.startsWith('/warehouse')) return isModuleEnabled('warehouse');
+          if (item.to.startsWith('/customers')) return isModuleEnabled('customers');
+          if (item.to.startsWith('/sales')) return isModuleEnabled('sales');
+          if (item.to.startsWith('/billing') || item.to.startsWith('/finance')) return isModuleEnabled('finance');
+          if (item.to.startsWith('/hr')) return isModuleEnabled('hr');
+          if (item.to.startsWith('/documents')) return isModuleEnabled('documents');
+          if (item.to.startsWith('/communication')) return isModuleEnabled('communication');
+          if (item.to.startsWith('/reports')) return isModuleEnabled('reports');
+          if (item.to.startsWith('/integrations')) return isModuleEnabled('integrations');
+          if (item.to.startsWith('/developer')) return isModuleEnabled('developer');
+          return true;
+        }).map((item) => (
           <ListItemButton
             key={item.to}
             component={NavLink}
@@ -116,7 +144,7 @@ export default function AppLayout() {
             </IconButton>
           )}
           <Typography variant="h6" noWrap sx={{ display: { xs: 'none', sm: 'block' } }}>
-            Yarn Management
+            {generalSettings.companyName || 'Yarn Management'}
           </Typography>
           <Typography variant="h6" noWrap sx={{ display: { xs: 'block', sm: 'none' } }}>
             YM

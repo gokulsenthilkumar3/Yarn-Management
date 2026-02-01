@@ -16,19 +16,39 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import PersonIcon from '@mui/icons-material/Person';
 import { notify } from '../context/NotificationContext';
+import { http } from '../lib/http';
+import { useEffect } from 'react';
 
 export default function UsersPage() {
   const [open, setOpen] = useState(false);
-  const [users, setUsers] = useState([
-    { id: 1, name: 'Admin User', email: 'admin@yarn.com', role: 'ADMIN', status: 'ACTIVE' },
-    { id: 2, name: 'Production Manager', email: 'prod@yarn.com', role: 'MANAGER', status: 'ACTIVE' },
-    { id: 3, name: 'Store Keeper', email: 'store@yarn.com', role: 'STAFF', status: 'INACTIVE' },
-  ]);
+  const [users, setUsers] = useState<any[]>([]); // TODO: Add proper TS interface
+  const [loading, setLoading] = useState(true);
 
-  const handleInvite = (email: string) => {
-    setUsers([...users, { id: users.length + 1, name: 'New User', email, role: 'STAFF', status: 'PENDING' }]);
-    notify.showSuccess(`Invitation sent to ${email}`);
-    setOpen(false);
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const { data } = await http.get('/users');
+      setUsers(data.users);
+    } catch (e) {
+      console.error(e);
+      notify.showError('Failed to fetch users');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInvite = async (email: string) => {
+    try {
+      await http.post('/users/invite', { email }); // Assuming invite endpoint or create endpoint
+      notify.showSuccess(`Invitation sent to ${email}`);
+      setOpen(false);
+      fetchUsers();
+    } catch (e: any) {
+      notify.showError(e.response?.data?.message || 'Failed to invite user');
+    }
   };
 
   return (

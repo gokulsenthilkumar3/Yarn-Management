@@ -16,20 +16,55 @@ import { notify } from '../context/NotificationContext';
 import { useThemeContext } from '../context/ThemeContext';
 import WebAuthnSetup from '../components/WebAuthnSetup';
 import SessionManagement from '../components/SessionManagement';
+import SessionLogsPage from './settings/SessionLogsPage';
+import AppSettingsPage from './settings/AppSettingsPage';
+import { useAppSettings } from '../context/AppSettingsContext';
+import { useAuth } from '../context/AuthContext';
+import { useEffect } from 'react';
 
 export default function SettingsPage() {
   const { mode, toggleTheme } = useThemeContext();
+  const { generalSettings, updateGeneralSettings } = useAppSettings();
+  const { user, refreshProfile } = useAuth();
+
   const [settings, setSettings] = useState({
-    companyName: 'Yarn Master Ltd.',
-    taxId: 'GSTIN-123456789',
-    email: 'admin@yarnmaster.com',
+    companyName: '',
+    taxId: '',
+    email: '',
     notifications: true
   });
+
+  // Load initial settings
+  useEffect(() => {
+    setSettings(prev => ({
+      ...prev,
+      companyName: generalSettings.companyName,
+      taxId: generalSettings.taxId,
+      email: user?.email || '',
+    }));
+  }, [generalSettings, user]);
+
   const [tab, setTab] = useState(0);
 
-  const handleSave = () => {
-    // Save logic here
-    notify.showSuccess('Settings saved successfully');
+  const handleSave = async () => {
+    try {
+      // 1. Update General Settings (Global)
+      await updateGeneralSettings({
+        companyName: settings.companyName,
+        taxId: settings.taxId
+      });
+
+      // 2. Update User Profile (Email)
+      if (user && settings.email !== user.email) {
+        const { http } = await import('../lib/http');
+        await http.patch('/users/me', { email: settings.email });
+        await refreshProfile();
+      }
+
+      notify.showSuccess('Settings saved successfully');
+    } catch (e) {
+      // Error handling already done in updateGeneralSettings or notify
+    }
   };
 
   return (
@@ -40,6 +75,8 @@ export default function SettingsPage() {
         <Tabs value={tab} onChange={(e, v) => setTab(v)}>
           <Tab label="General" />
           <Tab label="Security" />
+          <Tab label="Session Logs" />
+          <Tab label="App Settings" />
         </Tabs>
       </Box>
 
@@ -59,6 +96,14 @@ export default function SettingsPage() {
           <Divider sx={{ my: 4 }} />
           <SessionManagement />
         </Paper>
+      )}
+
+      {tab === 2 && (
+        <SessionLogsPage />
+      )}
+
+      {tab === 3 && (
+        <AppSettingsPage />
       )}
     </Box>
   );
