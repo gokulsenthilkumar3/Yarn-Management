@@ -14,7 +14,9 @@
     "build": "npm run build:api && npm run build:web",
     "start": "npm run dev",
     "build:app": "npm run build",
-    "dev:app": "npm run dev"
+    "dev:app": "npm run dev",
+    "lint": "npm run lint --workspaces",
+    "lint:fix": "npm run lint:fix --workspaces"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

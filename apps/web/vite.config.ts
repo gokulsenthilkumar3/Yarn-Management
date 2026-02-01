@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
@@ -51,6 +51,34 @@ export default defineConfig({
       }
     })
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Split vendor libraries into separate chunks for better caching
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'mui-vendor': ['@mui/material', '@mui/icons-material', '@mui/x-date-pickers'],
+          'chart-vendor': ['recharts'],
+          'utils': ['axios', 'date-fns']
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000, // Increase limit for vendor chunks
+    sourcemap: false, // Disable sourcemaps in production for smaller builds
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.ts',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: [
+        'node_modules/',
+        'src/test/',
+      ],
+    },
+  },
   server: {
     port: 5173,
   },

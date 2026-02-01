@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import type { Request, Response } from 'express';
 import { env } from './config/env';
@@ -8,6 +9,8 @@ import { authRouter } from './modules/auth/auth.routes';
 import { usersRouter } from './modules/users/users.routes';
 import { suppliersRouter } from './modules/suppliers/suppliers.routes';
 import { rawMaterialsRouter } from './modules/raw-materials/raw-materials.routes';
+import { costOptimizationRouter } from './modules/raw-materials/cost-optimization.routes';
+import { customerRouter } from './modules/customers/customer.routes';
 import { manufacturingRouter } from './modules/manufacturing/manufacturing.routes';
 import { billingRouter } from './modules/billing/billing.routes';
 import { invoiceTrackingRouterExport } from './modules/billing/invoice-tracking.routes';
@@ -22,6 +25,7 @@ import { portalRouterExport } from './modules/portal/portal.routes';
 import { planningRouter } from './modules/production/planning.routes';
 import { machineRouter } from './modules/production/machine.routes';
 import { monitoringRouterExport } from './modules/production/monitoring.routes';
+import { efficiencyRouter } from './modules/manufacturing/efficiency.routes';
 import { warehouseRouter } from './modules/inventory/warehouse.routes';
 import optimizationRouter from './modules/inventory/optimization.routes';
 import reconciliationRouter from './modules/inventory/reconciliation.routes';
@@ -35,6 +39,13 @@ import { integrationRouter } from './modules/integration/integration.routes';
 import { developerRouter } from './modules/developer/developer.routes';
 import { gdprRouter } from './modules/gdpr/gdpr.routes';
 import { adminRouter } from './modules/admin/admin.routes';
+import salesRouter from './modules/sales/sales.routes';
+import hrRouter from './modules/hr/hr.routes';
+import documentsRouter from './modules/documents/documents.routes';
+import communicationRouter from './modules/communication/communication.routes';
+import supportRouter from './modules/support/support.routes';
+import appSettingsRouter from './routes/app-settings.routes';
+import sessionLogsRouter from './routes/session-logs.routes';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
 import { errorHandler } from './middleware/errorHandler';
@@ -52,6 +63,7 @@ export function createApp() {
   );
   app.use(requestLogger);
   app.use(helmet());
+  app.use(compression()); // Enable gzip compression
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
 
@@ -65,7 +77,10 @@ export function createApp() {
   app.use('/users', usersRouter);
   app.use('/suppliers', suppliersRouter);
   app.use('/raw-materials', rawMaterialsRouter);
+  app.use('/raw-materials/cost-optimization', costOptimizationRouter);
+  app.use('/customers', customerRouter);
   app.use('/manufacturing', manufacturingRouter);
+  app.use('/manufacturing/efficiency', efficiencyRouter);
   app.use('/billing', billingRouter);
   app.use('/billing', invoiceTrackingRouterExport);
   app.use('/finished-goods', finishedGoodsRouter);
@@ -91,6 +106,13 @@ export function createApp() {
   app.use('/developer', developerRouter);
   app.use('/gdpr', gdprRouter);
   app.use('/admin', adminRouter);
+  app.use('/sales', salesRouter);
+  app.use('/hr', hrRouter);
+  app.use('/documents', documentsRouter);
+  app.use('/communication', communicationRouter);
+  app.use('/support', supportRouter);
+  app.use('/app-settings', appSettingsRouter);
+  app.use('/session-logs', sessionLogsRouter);
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
   app.use(errorHandler);

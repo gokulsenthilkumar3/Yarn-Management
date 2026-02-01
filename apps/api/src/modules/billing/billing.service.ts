@@ -268,7 +268,7 @@ export type CreateDebitNoteInput = z.infer<typeof createDebitNoteSchema>;
 export const createDebitNote = async (body: CreateDebitNoteInput) => {
     return await prisma.$transaction(async (tx) => {
         const count = await tx.debitNote.count();
-        const debitNote = await tx.debitNote.create({
+        return await tx.debitNote.create({
             data: {
                 debitNoteNumber: `DN-${generateInvoiceNumber(body.customerName, count + 1)}`,
                 customerName: body.customerName,
@@ -278,7 +278,6 @@ export const createDebitNote = async (body: CreateDebitNoteInput) => {
                 notes: body.notes,
             }
         });
-        return debitNote;
     });
 };
 
