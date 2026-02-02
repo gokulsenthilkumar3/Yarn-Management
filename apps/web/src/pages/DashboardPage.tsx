@@ -201,28 +201,33 @@ export default function DashboardPage() {
       </Typography>
 
       {/* New Dashboard Widgets */}
+      {/* New Dashboard Widgets */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
+        {/* Row 1: Production & Efficiency */}
         <Grid item xs={12} md={6}>
           <ProductionStatusWidget />
         </Grid>
         <Grid item xs={12} md={6}>
-          <FinancialOverviewWidget />
+          <ProductionEfficiencyChart />
         </Grid>
+
+        {/* Row 2: Inventory & Materials */}
         <Grid item xs={12} md={6}>
           <InventoryHealthWidget />
         </Grid>
         <Grid item xs={12} md={6}>
+          <WastageAnalysisWidget />
+        </Grid>
+
+        {/* Row 3: Supply Chain & Quality */}
+        <Grid item xs={12} md={6}>
           <SupplierPerformanceWidget />
         </Grid>
         <Grid item xs={12} md={6}>
-          <ProductionEfficiencyChart />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <WastageAnalysisWidget />
-        </Grid>
-        <Grid item xs={12}>
           <QualityMetricsWidget />
         </Grid>
+
+        {/* Row 4: Financial Deep Dive */}
         <Grid item xs={12}>
           <FinancialAnalyticsWidget />
         </Grid>

@@ -24,6 +24,9 @@ interface AppModules {
 interface GeneralSettings {
     companyName: string;
     taxId: string;
+    adminEmail: string;
+    logoUrl?: string;
+    notifications?: boolean;
 }
 
 interface AppSettingsContextType {
@@ -54,7 +57,10 @@ const defaultModules: AppModules = {
 
 const defaultGeneralSettings: GeneralSettings = {
     companyName: 'Yarn Management',
-    taxId: ''
+    taxId: '',
+    adminEmail: '',
+    logoUrl: '',
+    notifications: true
 };
 
 const AppSettingsContext = createContext<AppSettingsContextType | undefined>(undefined);

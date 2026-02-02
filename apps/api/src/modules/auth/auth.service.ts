@@ -37,7 +37,54 @@ async function verifyTokenHash(token: string, tokenHash: string) {
   return bcrypt.compare(token, tokenHash);
 }
 
-export async function login(email: string, password: string, ip?: string, userAgent?: string) {
+// Helper to parsing UA
+function parseDeviceName(userAgent?: string): string {
+  if (!userAgent) return 'Unknown Device';
+  const parser = new UAParser(userAgent);
+  const browser = parser.getBrowser();
+  const os = parser.getOS();
+  return `${browser.name || 'Unknown Browser'} on ${os.name || 'Unknown OS'}`;
+}
+
+// Helper to get location from IP
+async function getLocationFromIp(ip?: string): Promise<string | null> {
+  if (!ip || ip === '::1' || ip === '127.0.0.1') return 'Localhost';
+
+  try {
+    // Using ip-api.com (free, no key required for low volume)
+    const response = await fetch(`http://ip-api.com/json/${ip}`);
+    const data = await response.json();
+    if (data.status === 'success') {
+      return `${data.city}, ${data.country}`;
+    }
+  } catch (e) {
+    // Ignore errors, return null
+  }
+  return null;
+}
+
+// Helper to get location from Coords (GPS)
+async function getLocationFromCoords(lat: number, lng: number): Promise<string | null> {
+  try {
+    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, {
+      headers: {
+        'User-Agent': 'YarnManagement/1.0'
+      }
+    });
+    const data = await response.json();
+    if (data && data.address) {
+      const city = data.address.city || data.address.town || data.address.village;
+      const country = data.address.country;
+      if (city && country) return `${city}, ${country} (GPS)`;
+      if (country) return `${country} (GPS)`;
+    }
+  } catch (e) {
+    // Ignore
+  }
+  return null;
+}
+
+export async function login(email: string, password: string, ip?: string, userAgent?: string, coords?: { lat: number; lng: number }) {
   const user = await prisma.user.findUnique({
     where: { email },
     select: {
@@ -107,16 +154,19 @@ export async function login(email: string, password: string, ip?: string, userAg
     await recordDeviceActivity(user.id, ip, userAgent);
   }
 
-  return createSession(user.id, ip, userAgent);
+  let locationOverride: string | undefined;
+  if (coords) {
+    const gpsLoc = await getLocationFromCoords(coords.lat, coords.lng);
+    if (gpsLoc) locationOverride = gpsLoc;
+  }
+
+  return createSession(user.id, ip, userAgent, locationOverride);
 }
 
 async function recordDeviceActivity(userId: string, ip?: string, userAgent?: string) {
   if (!userAgent) return;
 
-  const parser = new UAParser(userAgent);
-  const browser = parser.getBrowser();
-  const os = parser.getOS();
-  const deviceName = `${browser.name || 'Unknown'} on ${os.name || 'Unknown'}`;
+  const deviceName = parseDeviceName(userAgent);
 
   // We'll use a simple deterministic "fingerprint" for now
   // In prod, use a more robust fingerprinting library or client-side permanent storage
@@ -145,7 +195,7 @@ async function recordDeviceActivity(userId: string, ip?: string, userAgent?: str
   }
 }
 
-export async function createSession(userId: string, ip?: string, userAgent?: string) {
+export async function createSession(userId: string, ip?: string, userAgent?: string, locationOverride?: string) {
   // Enforce session limits
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -180,6 +230,24 @@ export async function createSession(userId: string, ip?: string, userAgent?: str
       lastActive: new Date()
     },
   });
+
+  // Create Session Log
+  try {
+    const location = locationOverride || await getLocationFromIp(ip);
+    await prisma.sessionLog.create({
+      data: {
+        userId,
+        sessionToken: tokenHash,
+        deviceInfo: parseDeviceName(userAgent),
+        ipAddress: ip || 'Unknown',
+        location,
+        isActive: true,
+        loginAt: new Date()
+      }
+    });
+  } catch (logErr) {
+    console.error('Failed to create session log:', logErr);
+  }
 
   return { accessToken, refreshToken: refresh.raw, refreshExpiresAt: refresh.expiresAt };
 }
@@ -223,18 +291,41 @@ export async function refresh(refreshToken: string, ip?: string, userAgent?: str
 
   const accessToken = signAccessToken(userId);
   const newRefresh = signRefreshToken(userId);
-  const tokenHash = await hashToken(newRefresh.raw);
+  const newTokenHash = await hashToken(newRefresh.raw);
 
   await prisma.refreshToken.create({
     data: {
       userId,
-      tokenHash,
+      tokenHash: newTokenHash,
       expiresAt: newRefresh.expiresAt,
       ipAddress: ip,
       userAgent: userAgent,
       lastActive: new Date()
     },
   });
+
+  // Update Session Log with new token hash
+  try {
+    // Find session log with the OLD token hash
+    // Since we don't have unique constraint on tokenHash in session log easily accessible or reliable 1:1,
+    // we assume the scan is acceptable.
+    // However, findFirst with tokenHash should work if we stored it correctly.
+    // Note: 'match.tokenHash' is the BCRYPT hash. SessionLog stored this.
+    const sessionLog = await prisma.sessionLog.findFirst({
+      where: { sessionToken: match.tokenHash }
+    });
+
+    if (sessionLog) {
+      await prisma.sessionLog.update({
+        where: { id: sessionLog.id },
+        data: {
+          sessionToken: newTokenHash
+        }
+      });
+    }
+  } catch (logErr) {
+    console.error('Failed to update session log on refresh:', logErr);
+  }
 
   return { accessToken, refreshToken: newRefresh.raw, refreshExpiresAt: newRefresh.expiresAt };
 }
@@ -255,6 +346,23 @@ export async function logout(refreshToken?: string) {
       const ok = await verifyTokenHash(refreshToken, c.tokenHash);
       if (ok) {
         await prisma.refreshToken.delete({ where: { id: c.id } });
+
+        // Close session log
+        try {
+          const sessionLog = await prisma.sessionLog.findFirst({
+            where: { sessionToken: c.tokenHash }
+          });
+          if (sessionLog) {
+            await prisma.sessionLog.update({
+              where: { id: sessionLog.id },
+              data: {
+                isActive: false,
+                logoutAt: new Date()
+              }
+            });
+          }
+        } catch (e) { console.error('Error closing session log:', e); }
+
         break;
       }
     }

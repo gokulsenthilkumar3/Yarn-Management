@@ -6,7 +6,8 @@ export interface NewsInsight {
     summary: string;
     category: 'Market' | 'Economic' | 'Technology' | 'Sustainability';
     relevanceScore: number;
-    impact: 'High' | 'Medium' | 'Low';
+    sentiment: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
+    businessImpact: string;
     source: string;
     url?: string;
     publishedAt: Date;
@@ -34,7 +35,8 @@ export class MarketIntelligenceService {
                 title: 'Cotton Futures Surged 4% Amid Export Demand',
                 summary: 'International cotton prices saw a sharp uptick this morning as major importers increased orders for high-quality staples.',
                 category: 'Market',
-                impact: 'High',
+                sentiment: 'NEGATIVE',
+                businessImpact: 'High - Expect increased procurement costs.',
                 source: 'Textile Daily',
                 publishedAt: new Date(),
                 relevanceScore: isProcurement ? 95 : 75
@@ -44,7 +46,8 @@ export class MarketIntelligenceService {
                 title: 'New Eco-Friendly Dyeing Process Reduces Water Use by 80%',
                 summary: 'Researchers in Germany have unveiled a proprietary enzyme-based dyeing process that significantly minimizes water and chemical footprint.',
                 category: 'Technology',
-                impact: 'Medium',
+                sentiment: 'POSITIVE',
+                businessImpact: 'Medium - Potential for long-term savings and sustainability branding.',
                 source: 'Green Fiber Journal',
                 publishedAt: new Date(Date.now() - 3600000),
                 relevanceScore: 80
@@ -54,7 +57,8 @@ export class MarketIntelligenceService {
                 title: 'Ocean Freight Rates Stabilize After Peak Season',
                 summary: 'Logistics experts report a cooling of container rates on the Asia-Europe route, easing pressure on import raw materials.',
                 category: 'Economic',
-                impact: 'Medium',
+                sentiment: 'POSITIVE',
+                businessImpact: 'Medium - Reduced logistics overhead.',
                 source: 'Logistics Insider',
                 publishedAt: new Date(Date.now() - 7200000),
                 relevanceScore: isManagement ? 90 : 60
@@ -64,7 +68,8 @@ export class MarketIntelligenceService {
                 title: 'EU Tightens Textile Waste Regulations',
                 summary: 'A new directive mandates higher circularity standards for all textile imports starting Q3 2026.',
                 category: 'Sustainability',
-                impact: 'High',
+                sentiment: 'NEUTRAL',
+                businessImpact: 'High - Requires compliance review.',
                 source: 'Regulate Watch',
                 publishedAt: new Date(Date.now() - 86400000),
                 relevanceScore: isManagement ? 98 : 50

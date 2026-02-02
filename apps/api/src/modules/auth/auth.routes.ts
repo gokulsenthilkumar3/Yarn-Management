@@ -10,15 +10,16 @@ const cookieOptions = {
   httpOnly: true,
   sameSite: 'lax' as const,
   secure: process.env.NODE_ENV === 'production',
-  path: '/auth',
+  path: '/',
 };
 
 authRouter.post('/login', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const body = loginSchema.parse(req.body);
+    console.log('LOGIN ATTEMPT:', { email: body.email, passwordLen: body.password.length, passwordFirstChar: body.password[0], passwordLastChar: body.password[body.password.length - 1] });
     const ip = req.ip || req.socket.remoteAddress;
     const userAgent = req.headers['user-agent'];
-    const result = await login(body.email, body.password, ip, userAgent);
+    const result = await login(body.email, body.password, ip, userAgent, body.location);
 
     res.cookie('refresh_token', result.refreshToken, {
       ...cookieOptions,

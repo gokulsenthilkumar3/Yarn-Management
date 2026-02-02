@@ -1,8 +1,54 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../prisma/client';
 import { authenticate } from '../middleware/authenticate';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 
 const router = Router();
+
+// Configure storage
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const uploadDir = 'uploads/';
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+        // Sanitize filename and add timestamp
+        const ext = path.extname(file.originalname);
+        cb(null, `logo-${Date.now()}${ext}`);
+    }
+});
+
+const upload = multer({
+    storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only image files are allowed'));
+        }
+    }
+});
+
+// POST /api/app-settings/logo - Upload logo
+router.post('/logo', authenticate, upload.single('logo'), (req: Request, res: Response) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+        // Return relative URL
+        const url = `/uploads/${req.file.filename}`;
+        res.json({ url });
+    } catch (error) {
+        console.error('Error uploading logo:', error);
+        res.status(500).json({ error: 'Failed to upload logo' });
+    }
+});
 
 // Default module settings
 const DEFAULT_MODULES = {
@@ -45,7 +91,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
 
         res.json({
             modules: moduleSettings?.value || DEFAULT_MODULES,
-            general: generalSettings?.value || { companyName: 'Yarn Management', taxId: '' },
+            general: generalSettings?.value || { companyName: 'Yarn Management', taxId: '', adminEmail: '' },
         });
     } catch (error) {
         console.error('Error fetching app settings:', error);

@@ -24,9 +24,14 @@ const envSchema = z.object({
 
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
 
-  ADMIN_EMAIL: z.string().email().default('admin@example.com'),
+  ADMIN_EMAIL: z.string().email().default('gokulkangeyan@gmail.com'),
   ADMIN_PASSWORD: z.string().min(12).default('admin123456!'),
   ENCRYPTION_SECRET: z.string().length(32).default('a-very-secret-key-32-chars-long!'),
+
+  // Redis configuration
+  REDIS_HOST: z.string().default('localhost'),
+  REDIS_PORT: z.string().default('6379'),
+  REDIS_PASSWORD: z.string().optional(),
 
   // Log retention configuration
   AUDIT_LOG_RETENTION_DAYS: z.coerce.number().default(90),
