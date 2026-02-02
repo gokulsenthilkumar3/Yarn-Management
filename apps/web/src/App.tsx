@@ -62,6 +62,7 @@ const DocumentManagementPage = lazy(() => import('./pages/documents/DocumentMana
 const CommunicationCenterPage = lazy(() => import('./pages/communication/CommunicationCenterPage'));
 const SupportTicketsPage = lazy(() => import('./pages/support/SupportTicketsPage'));
 const SupplierPerformanceDashboard = lazy(() => import('./pages/suppliers/performance/SupplierPerformanceDashboard').then(m => ({ default: m.SupplierPerformanceDashboard })));
+const NewsIntelligencePage = lazy(() => import('./pages/NewsIntelligencePage'));
 
 // Loading component
 const LoadingFallback = () => (
@@ -134,6 +135,7 @@ export default function App() {
                     <Route path="/quality-analytics" element={<QualityAnalyticsDashboard />} />
                     <Route path="/suppliers/onboarding" element={<SupplierOnboardingPage />} />
                     <Route path="/suppliers/:supplierId/performance" element={<SupplierPerformanceDashboard />} />
+                    <Route path="/news-intelligence" element={<NewsIntelligencePage />} />
                   </Route>
                 </Route>
 

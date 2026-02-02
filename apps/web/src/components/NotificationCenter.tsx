@@ -211,10 +211,10 @@ export default function NotificationCenter() {
                                         <Box key={notification.id}>
                                             <ListItem
                                                 sx={{
-                                                    bgcolor: notification.read ? 'transparent' : '#f5f5f5',
+                                                    bgcolor: notification.read ? 'transparent' : 'action.selected',
                                                     py: 2,
                                                     cursor: 'pointer',
-                                                    '&:hover': { bgcolor: '#eeeeee' },
+                                                    '&:hover': { bgcolor: 'action.hover' },
                                                 }}
                                                 onClick={() => !notification.read && handleMarkAsRead(notification.id)}
                                                 secondaryAction={

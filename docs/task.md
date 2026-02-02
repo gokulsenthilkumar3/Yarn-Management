@@ -348,6 +348,19 @@
   - [x] GSTR-3B report
   - [x] Input tax credit reconciliation
   - [x] E-way bill generation
+  - [x] **GSTIN Validation & Verification (Settings)**
+
+### User Management Upgrade 👥
+- [x] **New Implementation** (`UsersPage.tsx`)
+  - [x] Tabbed Interface (Users / Roles)
+  - [x] Professional Data Table
+  - [x] Role Management Mockup
+  - [x] Enhanced Invitation & CRUD
+- [x] **Admin Migration**
+  - [x] Promote `gokulkangeyan@gmail.com` to Main Admin
+  - [x] Delete `admin@example.com`
+
+### Geographic Coverage Implemented
 - [x] Financial statements
   - [x] Profit & loss statement
   - [x] Balance sheet
@@ -358,6 +371,8 @@
   - [x] User activity logs
   - [x] Data change history
   - [x] Compliance checklists
+  - [x] **Settings Persistence Fixes**
+  - [x] **Fix Notification Dark Mode Hover Issue**
 
 ### K. Integration & API Ecosystem
 
@@ -545,8 +560,13 @@
     - [x] Create User Guide (`docs/USER_GUIDE.md`) <!-- id: 70 -->
     - [x] Implement App Settings (Module Toggle) <!-- id: 71 -->
     - [x] Implement Session Logs <!-- id: 72 -->
+    - [x] Enhance Session Logs with GPS Location <!-- id: 72b -->
+    - [x] Fix Session Revocation & Logout <!-- id: 72c -->
+    - [x] Implement Custom Logo Setting (Header & Favicon) <!-- id: 72d -->
     - [x] Resolve System Errors (Migration/Seeding) <!-- id: 73 -->
     - [x] Fix Backend Routes & Restart Server <!-- id: 374 -->
+- [x] **Fix User Management Routes (404 Error)**
+- [x] Fix React Uncontrolled Component Warning
   - [x] Machine breakdown alerts
   - [x] Material shortage alerts
 

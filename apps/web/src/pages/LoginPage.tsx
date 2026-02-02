@@ -19,13 +19,28 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  async function getLocation(): Promise<{ lat: number; lng: number } | undefined> {
+    if (!navigator.geolocation) return undefined;
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => resolve(undefined),
+        { timeout: 3000, enableHighAccuracy: true }
+      );
+    });
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      const res = await http.post('/auth/login', { email, password });
+      const coords = await getLocation();
+      const payload: any = { email, password };
+      if (coords) payload.location = coords;
+
+      const res = await http.post('/auth/login', payload);
       const token = res.data?.accessToken as string;
       if (!token) throw new Error('No access token returned');
       login(token);

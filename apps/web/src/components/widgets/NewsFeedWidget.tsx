@@ -45,8 +45,19 @@ const NewsFeedWidget = () => {
     const fetchNews = async () => {
         try {
             setLoading(true);
-            const res = await http.get('/demand-forecasting/news');
-            setNews(res.data);
+            const res = await http.get('/news-intelligence/feed?limit=5&priority=high');
+            // Adapt API response to widget format
+            const articles = res.data.data || [];
+            setNews(articles.map((a: any) => ({
+                id: a.id,
+                title: a.title,
+                summary: a.summary || a.content?.substring(0, 100) + '...',
+                category: a.category || 'Industry',
+                relevanceScore: a.relevanceScore || 85,
+                businessImpact: a.pillar || 'Market Intelligence', // Use pillar as impact context
+                publishedAt: a.publishedAt,
+                sentiment: 'NEUTRAL' // Default
+            })));
         } catch (err) {
             console.error(err);
         } finally {
@@ -83,11 +94,15 @@ const NewsFeedWidget = () => {
                         <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress size={24} /></Box>
                     ) : (
                         <List>
-                            {news.map((item, index) => (
+                            {news.length === 0 ? (
+                                <Box sx={{ p: 3, textAlign: 'center' }}>
+                                    <Typography variant="body2" color="text.secondary">No breaking news found.</Typography>
+                                </Box>
+                            ) : news.map((item, index) => (
                                 <React.Fragment key={item.id}>
                                     <ListItem alignItems="flex-start" sx={{ flexDirection: 'column', alignItems: 'stretch' }}>
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                            <Chip label={item.category} size="small" color={item.category === 'Sports' ? 'warning' : 'primary'} />
+                                            <Chip label={item.category} size="small" color={item.category === 'Breaking' ? 'error' : 'primary'} />
                                             <Typography variant="caption" color="text.secondary">
                                                 {new Date(item.publishedAt).toLocaleDateString()}
                                             </Typography>
@@ -102,7 +117,7 @@ const NewsFeedWidget = () => {
                                         <Box sx={{ bgcolor: 'action.hover', p: 1, borderRadius: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
                                             <AutoAwesomeIcon fontSize="small" color="secondary" />
                                             <Typography variant="caption" fontWeight="bold" color="secondary.main">
-                                                AI Insight: {item.businessImpact}
+                                                Context: {item.businessImpact}
                                             </Typography>
                                         </Box>
                                     </ListItem>

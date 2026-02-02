@@ -27,6 +27,8 @@ async function main() {
   const permissions = [
     await upsertPermission('users.read', 'Read users'),
     await upsertPermission('users.create', 'Create users'),
+    await upsertPermission('users.update', 'Update users'),
+    await upsertPermission('users.delete', 'Delete users'),
     await upsertPermission('suppliers.read', 'Read suppliers'),
     await upsertPermission('suppliers.create', 'Create suppliers'),
     await upsertPermission('suppliers.update', 'Update suppliers'),
@@ -42,6 +44,11 @@ async function main() {
       create: { roleId: adminRole.id, permissionId: p.id },
     });
   }
+
+  // Create other roles
+  await upsertRole('MANAGER', 'Manager');
+  await upsertRole('USER', 'Standard User');
+  await upsertRole('VIEWER', 'Read-Only Viewer');
 
   const passwordHash = await bcrypt.hash(env.ADMIN_PASSWORD, 10);
 
@@ -411,6 +418,89 @@ async function main() {
           }
         }
       });
+    }
+  }
+
+  // 7. App Settings
+  console.log('--- Seeding App Settings ---');
+
+  await prisma.appSettings.upsert({
+    where: { key: 'general' },
+    update: {}, // Don't overwrite existing user settings
+    create: {
+      key: 'general',
+      value: {
+        companyName: 'Yarn Management',
+        taxId: '',
+        adminEmail: 'gokulkangeyan@gmail.com', // Updated from user context
+        notifications: true,
+        logoUrl: ''
+      },
+      description: 'General application settings'
+    }
+  });
+
+  const DEFAULT_MODULES = {
+    procurement: true,
+    inventory: true,
+    warehouse: true,
+    manufacturing: true,
+    quality: true,
+    sales: true,
+    customers: true,
+    finance: true,
+    hr: true,
+    documents: true,
+    communication: true,
+    reports: true,
+    integrations: true,
+    developer: true,
+  };
+
+  await prisma.appSettings.upsert({
+    where: { key: 'modules' },
+    update: {},
+    create: {
+      key: 'modules',
+      value: DEFAULT_MODULES,
+      description: 'Module visibility settings'
+    }
+  });
+
+  // 8. Notifications
+  console.log('--- Seeding Notifications ---');
+  const adminUserToNotify = await prisma.user.findUnique({ where: { email: env.ADMIN_EMAIL } });
+
+  if (adminUserToNotify) {
+    const notifCount = await prisma.notification.count({ where: { userId: adminUserToNotify.id } });
+
+    if (notifCount === 0) {
+      await prisma.notification.createMany({
+        data: [
+          {
+            userId: adminUserToNotify.id,
+            type: 'LOW_STOCK',
+            title: 'Critical Stock Alert',
+            message: 'Cotton Bale (Grade A) inventory has dropped below 10%. Reorder immediately.',
+            read: false
+          },
+          {
+            userId: adminUserToNotify.id,
+            type: 'SUCCESS',
+            title: 'Payment Confirmed',
+            message: 'Global Cotton Co has settled Invoice #INV-2024-001 for ₹12,50,000.',
+            read: false
+          },
+          {
+            userId: adminUserToNotify.id,
+            type: 'INFO',
+            title: 'Market Intelligence',
+            message: 'New export duties announced for cotton yarn. Check News Intelligence for details.',
+            read: true
+          }
+        ]
+      });
+      console.log('Seeded 3 sample notifications');
     }
   }
 

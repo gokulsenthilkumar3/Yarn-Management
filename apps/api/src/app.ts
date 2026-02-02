@@ -1,3 +1,4 @@
+import path from 'path';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -44,6 +45,7 @@ import hrRouter from './modules/hr/hr.routes';
 import documentsRouter from './modules/documents/documents.routes';
 import communicationRouter from './modules/communication/communication.routes';
 import supportRouter from './modules/support/support.routes';
+import { newsIntelligenceRouter } from './modules/news-intelligence/news-intelligence.routes';
 import appSettingsRouter from './routes/app-settings.routes';
 import sessionLogsRouter from './routes/session-logs.routes';
 import swaggerUi from 'swagger-ui-express';
@@ -62,13 +64,15 @@ export function createApp() {
     })
   );
   app.use(requestLogger);
-  app.use(helmet());
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+  }));
   app.use(compression()); // Enable gzip compression
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
 
   // Serve uploaded files
-  app.use('/uploads', express.static('uploads'));
+  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
   app.get('/health', (_req: Request, res: Response) => res.json({ ok: true }));
 
@@ -113,6 +117,7 @@ export function createApp() {
   app.use('/support', supportRouter);
   app.use('/app-settings', appSettingsRouter);
   app.use('/session-logs', sessionLogsRouter);
+  app.use('/news-intelligence', newsIntelligenceRouter);
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
   app.use(errorHandler);

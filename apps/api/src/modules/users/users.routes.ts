@@ -12,44 +12,40 @@ export const usersRouter = Router();
 usersRouter.get('/me', authenticate, async (req: Request, res: Response) => {
   const user = await prisma.user.findUnique({
     where: { id: req.userId! },
-    select: { id: true, email: true, name: true, status: true, createdAt: true },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      status: true,
+      createdAt: true,
+      roles: {
+        select: {
+          role: { select: { code: true } }
+        }
+      }
+    },
   });
 
-  return res.json({ user });
+  // Flatten role for frontend
+  const flatUser = user ? {
+    ...user,
+    role: user.roles[0]?.role?.code || 'USER'
+  } : null;
+
+  return res.json({ user: flatUser });
 });
 
 usersRouter.patch('/me', authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    console.log('PATCH /me body:', req.body);
     const { name, email } = z.object({
       name: z.string().optional(),
       email: z.string().email().optional().or(z.literal('')),
     }).parse(req.body);
-    console.log('Parsed data:', { name, email });
-
-    // If email is empty string, don't update it to empty, just ignore it or throw error.
-    // Better to just ensure frontend sends undefined or valid email. 
-    // Let's stick to strict email validation but ensure frontend sends it correctly.
-    // Reverting to strict email but adding logic to ignore if undefined/null in easier way?
-    // Actually the error log shows: "validation": "email", "code": "invalid_string", "message": "Invalid email".
-    // This happens if the string is NOT a valid email.
-
-    // Let's inspect what frontend sends. SettingsPage sends: { email: settings.email }
-    // If settings.email is empty string (initially), it fails validation.
-
-    // Fix: Only update email if it's truthy and valid.
-    /* 
-       Actually, let's fix the schema to strictly require valid email if provided, 
-       but we need to know WHY it failed. 
-       If the user cleared the input, it sends "".
-       If the user provided an empty value, we should probably fail or ignore.
-    */
 
     const updateData = {
       ...(name && { name }),
-      ...(email && email !== '' && { email }), // Ensure empty string doesn't wipe email if logic allowed it (though regex prevents invalid)
+      ...(email && email !== '' && { email }),
     };
-    console.log('Prisma update data:', updateData);
 
     const user = await prisma.user.update({
       where: { id: req.userId },
@@ -69,12 +65,29 @@ usersRouter.get(
   requirePermission('users.read'),
   async (_req: Request, res: Response) => {
     const users = await prisma.user.findMany({
-      select: { id: true, email: true, name: true, status: true, createdAt: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        status: true,
+        createdAt: true,
+        roles: {
+          select: {
+            role: { select: { code: true } }
+          }
+        }
+      },
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
 
-    return res.json({ users });
+    // Flatten roles
+    const flatUsers = users.map(u => ({
+      ...u,
+      role: u.roles[0]?.role?.code || 'USER'
+    }));
+
+    return res.json({ users: flatUsers });
   }
 );
 
@@ -172,3 +185,159 @@ usersRouter.delete('/me/devices/:deviceId', authenticate, async (req: Request, r
     return next(e);
   }
 });
+/**
+ * UPDATE User (PUT /:id)
+ * Admin only. Cannot change email. Can change role/status/name.
+ */
+usersRouter.put(
+  '/:id',
+  authenticate,
+  requirePermission('users.update'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params;
+      const schema = z.object({
+        name: z.string().optional(),
+        role: z.string().optional(),
+        status: z.enum(['ACTIVE', 'INACTIVE', 'PENDING']).optional(),
+      });
+      const body = schema.parse(req.body);
+
+      // Prevent modifying main admin's critical fields if strict
+      // Ideally prevent demoting main admin
+      const targetUser = await prisma.user.findUnique({ where: { id } });
+      if (!targetUser) return res.status(404).json({ message: 'User not found' });
+
+      if (targetUser.email === 'gokulkangeyan@gmail.com') {
+        // Allow name update, but prevent role/status change for safety?
+        if (body.role && body.role !== 'ADMIN') {
+          return res.status(403).json({ message: 'Cannot demote Main Admin.' });
+        }
+        if (body.status && body.status !== 'ACTIVE') {
+          return res.status(403).json({ message: 'Cannot deactivate Main Admin.' });
+        }
+      }
+
+      // Handle Role Update (requires finding role ID)
+      let roleUpdate = {};
+      if (body.role) {
+        const roleRecord = await prisma.role.findFirst({ where: { code: body.role } });
+        if (roleRecord) {
+          // Replace existing roles or add? Usually Replace for simple UI.
+          // We'll disconnect all and connect new one.
+          roleUpdate = {
+            roles: {
+              deleteMany: {},
+              create: { roleId: roleRecord.id }
+            }
+          };
+        }
+      }
+
+      const user = await prisma.user.update({
+        where: { id },
+        data: {
+          ...(body.name && { name: body.name }),
+          ...(body.status && { status: body.status }),
+          ...roleUpdate
+        },
+        select: { id: true, email: true, name: true, status: true }
+      });
+
+      return res.json({ user });
+    } catch (e) {
+      return next(e);
+    }
+  }
+);
+
+/**
+ * DELETE User (DELETE /:id)
+ * Admin only. Protected admins cannot be deleted.
+ */
+usersRouter.delete(
+  '/:id',
+  authenticate,
+  requirePermission('users.delete'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params;
+
+      const user = await prisma.user.findUnique({ where: { id } });
+      if (!user) return res.status(404).json({ message: 'User not found' });
+
+      // Protection Logic
+      if (user.email === 'gokulkangeyan@gmail.com') {
+        return res.status(403).json({ message: 'Cannot delete protected system administrator.' });
+      }
+
+      if (user.id === req.userId) {
+        return res.status(403).json({ message: 'Cannot delete your own account.' });
+      }
+
+      await prisma.user.delete({ where: { id } });
+
+      await recordAuditLog(AuditAction.ACCOUNT_DELETED, { // Using existing enum
+        userId: req.userId,
+        metadata: { deletedUserEmail: user.email },
+        ip: req.ip,
+        userAgent: req.header('user-agent')
+      });
+
+      return res.json({ message: 'User deleted successfully' });
+    } catch (e) {
+      return next(e);
+    }
+  }
+);
+
+/**
+ * INVITE User (POST /invite)
+ * Admin sends email (mock) and creates user with temp password or token.
+ * Alias for strict creation flow.
+ */
+usersRouter.post(
+  '/invite',
+  authenticate,
+  requirePermission('users.create'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Re-use create schema logic or similar
+      const schema = z.object({
+        email: z.string().email(),
+        name: z.string().optional(),
+        role: z.string().default('USER'),
+      });
+      const body = schema.parse(req.body);
+
+      // Check existence
+      const existing = await prisma.user.findUnique({ where: { email: body.email } });
+      if (existing) return res.status(400).json({ message: 'User already exists' });
+
+      // Create with default password
+      const passwordHash = await bcrypt.hash('welcome123', 10);
+
+      const roleRecord = await prisma.role.findFirst({ where: { code: body.role } });
+
+      const user = await prisma.user.create({
+        data: {
+          email: body.email,
+          name: body.name,
+          passwordHash,
+          status: 'PENDING',
+          roles: roleRecord ? {
+            create: { roleId: roleRecord.id }
+          } : undefined
+        },
+        select: { id: true, email: true }
+      });
+
+      // TODO: Send Email logic here
+      console.log(`[Email Mock] Invite sent to ${body.email}`);
+
+      return res.json({ message: 'Invitation sent', user });
+    } catch (e) {
+      return next(e);
+    }
+  }
+);

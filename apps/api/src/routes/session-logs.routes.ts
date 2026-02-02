@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { authenticate } from '../middleware/authenticate';
+import bcrypt from 'bcryptjs';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -10,6 +11,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
     try {
         const userId = (req as any).user?.id;
         const { page = 1, limit = 20, all = 'false' } = req.query;
+        const currentRefreshToken = req.cookies?.refresh_token;
 
         const skip = (Number(page) - 1) * Number(limit);
         const take = Number(limit);
@@ -35,8 +37,22 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
             prisma.sessionLog.count({ where }),
         ]);
 
+        // Identify current session
+        const sessionsWithStatus = await Promise.all(sessions.map(async (s) => {
+            let isCurrent = false;
+            if (currentRefreshToken && s.sessionToken && s.isActive) {
+                // Warning: bcrypt compare on every row can be slow if limit is high.
+                // Limit is 20, acceptable.
+                isCurrent = await bcrypt.compare(currentRefreshToken, s.sessionToken);
+            }
+            return {
+                ...s,
+                isCurrent
+            };
+        }));
+
         res.json({
-            data: sessions,
+            data: sessionsWithStatus,
             pagination: {
                 page: Number(page),
                 limit: Number(limit),

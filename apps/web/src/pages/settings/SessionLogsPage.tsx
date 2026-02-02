@@ -34,6 +34,7 @@ interface Session {
     loginAt: string;
     logoutAt: string | null;
     isActive: boolean;
+    isCurrent?: boolean;
     revokedAt: string | null;
     user: {
         email: string;
@@ -45,7 +46,7 @@ export default function SessionLogsPage() {
     const [sessions, setSessions] = useState<Session[]>([]);
     const [loading, setLoading] = useState(true);
     const [revokeConfirmId, setRevokeConfirmId] = useState<string | null>(null);
-    const { user } = useAuth(); // To highlight current session if possible? We don't have session ID in context easily yet.
+    const { logout } = useAuth();
 
     useEffect(() => {
         fetchSessions();
@@ -55,7 +56,7 @@ export default function SessionLogsPage() {
         try {
             setLoading(true);
             const response = await http.get('/session-logs');
-            setSessions(response.data.data); // data.data because of pagination envelope
+            setSessions(response.data.data);
         } catch (error) {
             console.error('Failed to fetch sessions:', error);
             notify.showError('Failed to load session logs');
@@ -67,10 +68,23 @@ export default function SessionLogsPage() {
     const handleRevoke = async () => {
         if (!revokeConfirmId) return;
 
+        // Find session to check if it's current
+        const sessionToRevoke = sessions.find(s => s.id === revokeConfirmId);
+        const isCurrent = sessionToRevoke?.isCurrent;
+
         try {
             await http.delete(`/session-logs/${revokeConfirmId}`);
             notify.showSuccess('Session revoked successfully');
-            fetchSessions(); // Refresh list
+
+            if (isCurrent) {
+                // Determine if we should logout immediately
+                // Wait briefly to show success message then logout
+                setTimeout(() => {
+                    logout();
+                }, 1000);
+            } else {
+                fetchSessions(); // Refresh list
+            }
         } catch (error) {
             console.error('Failed to revoke session:', error);
             notify.showError('Failed to revoke session');
@@ -85,6 +99,9 @@ export default function SessionLogsPage() {
         }
         if (!session.isActive || session.logoutAt) {
             return <Chip label="Expired" color="default" size="small" />;
+        }
+        if (session.isCurrent) {
+            return <Chip label="Active (Current)" color="primary" size="small" />;
         }
         return <Chip label="Active" color="success" size="small" />;
     };
@@ -106,6 +123,7 @@ export default function SessionLogsPage() {
                 <Table>
                     <TableHead>
                         <TableRow>
+                            <TableCell>User</TableCell>
                             <TableCell>Device / Browser</TableCell>
                             <TableCell>IP Address</TableCell>
                             <TableCell>Location</TableCell>
@@ -117,19 +135,22 @@ export default function SessionLogsPage() {
                     <TableBody>
                         {loading ? (
                             <TableRow>
-                                <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
+                                <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
                                     <CircularProgress />
                                 </TableCell>
                             </TableRow>
                         ) : sessions.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} align="center">
+                                <TableCell colSpan={7} align="center">
                                     No session history found.
                                 </TableCell>
                             </TableRow>
                         ) : (
                             sessions.map((session) => (
                                 <TableRow key={session.id}>
+                                    <TableCell>
+                                        <Typography variant="body2">{session.user.name || session.user.email}</Typography>
+                                    </TableCell>
                                     <TableCell>
                                         <Typography variant="body2">{parseDeviceInfo(session.deviceInfo)}</Typography>
                                     </TableCell>

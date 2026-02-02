@@ -1894,6 +1894,8 @@ model WebhookLog {
 
 enum UserStatus {
   ACTIVE
+  INACTIVE
+  PENDING
   DISABLED
 }
 
