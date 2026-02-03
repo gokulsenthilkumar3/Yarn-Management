@@ -35,6 +35,19 @@ export const getInvoices = async () => {
     });
 };
 
+export const getInvoiceById = async (id: string) => {
+    return await prisma.invoice.findUnique({
+        where: { id },
+        include: {
+            items: true,
+            recurringConfig: true,
+            customer: true,
+            invoicePayments: true,
+            history: true
+        },
+    });
+};
+
 function toDecimal(n: number) {
     return new Decimal(n);
 }

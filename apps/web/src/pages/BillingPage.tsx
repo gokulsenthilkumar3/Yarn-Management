@@ -40,9 +40,14 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import PaymentIcon from '@mui/icons-material/Payment';
 import TimelineIcon from '@mui/icons-material/Timeline';
+import HistoryIcon from '@mui/icons-material/History';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import LockIcon from '@mui/icons-material/Lock';
 import { http } from '../lib/http';
 import { notify } from '../context/NotificationContext';
 import { FormControlLabel, Switch } from '@mui/material';
+import PartialPaymentDialog from '../components/billing/PartialPaymentDialog';
+import InvoiceHistoryDialog from '../components/billing/InvoiceHistoryDialog';
 
 export default function BillingPage() {
   const navigate = useNavigate();
@@ -59,6 +64,11 @@ export default function BillingPage() {
   const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState<any>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+
+  // Enhanced invoice management state
+  const [partialPaymentDialogOpen, setPartialPaymentDialogOpen] = useState(false);
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [selectedInvoiceForPartialPayment, setSelectedInvoiceForPartialPayment] = useState<any>(null);
 
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
 
@@ -244,10 +254,38 @@ export default function BillingPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'PAID': return 'success';
+      case 'PARTIALLY_PAID': return 'info';
       case 'PENDING': return 'warning';
       case 'OVERDUE': return 'error';
+      case 'VOID':
+      case 'CANCELLED': return 'default';
       default: return 'default';
     }
+  };
+
+  const handleRecordPayment = (invoice: any) => {
+    setSelectedInvoiceForPartialPayment({
+      id: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      totalAmount: Number(invoice.totalAmount),
+      paidAmount: Number(invoice.paidAmount || 0),
+      balance: Number(invoice.balance || invoice.totalAmount),
+      customerName: invoice.customerName,
+    });
+    setPartialPaymentDialogOpen(true);
+    handleCloseMenu();
+  };
+
+  const handleViewHistory = () => {
+    setHistoryDialogOpen(true);
+    handleCloseMenu();
+  };
+
+  const handleDownloadPDF = (template: string = 'STANDARD') => {
+    if (!selectedInvoice) return;
+    // Open print view in new tab
+    window.open(`/billing/print/${selectedInvoice.id}`, '_blank');
+    handleCloseMenu();
   };
 
   return (
@@ -338,19 +376,21 @@ export default function BillingPage() {
                 <TableCell sx={{ fontWeight: 'bold' }}>Customer</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Amount</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Balance</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>Action</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredInvoices.length === 0 ? (
-                <TableRow><TableCell colSpan={6} align="center">No invoices found for this month</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} align="center">No invoices found for this month</TableCell></TableRow>
               ) : (
                 filteredInvoices.map((inv) => (
                   <TableRow key={inv.id} hover>
                     <TableCell sx={{ fontWeight: 500 }}>
                       {inv.invoiceNumber}
                       {inv.isRecurring && <Chip label="REC" size="small" variant="outlined" sx={{ ml: 1, height: 20, fontSize: '0.65rem' }} color="primary" />}
+                      {inv.isLocked && <LockIcon sx={{ ml: 1, fontSize: 16, color: 'text.secondary' }} />}
                     </TableCell>
                     <TableCell>{inv.customerName}</TableCell>
                     <TableCell>{new Date(inv.date).toLocaleDateString()}</TableCell>
@@ -358,6 +398,27 @@ export default function BillingPage() {
                       <Box>
                         <Typography variant="body2" sx={{ fontWeight: 'bold' }}>₹{Number(inv.totalAmount).toLocaleString()}</Typography>
                         <Typography variant="caption" color="text.secondary">Inc. ₹{Number(inv.taxAmount || 0).toLocaleString()} tax</Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Box>
+                        {Number(inv.paidAmount || 0) > 0 && (
+                          <Typography variant="caption" color="success.main" display="block">
+                            Paid: ₹{Number(inv.paidAmount).toLocaleString()}
+                          </Typography>
+                        )}
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: Number(inv.balance || inv.totalAmount) > 0 ? 'bold' : 'normal',
+                            color: Number(inv.balance || inv.totalAmount) > 0 ? 'error.main' : 'text.secondary'
+                          }}
+                        >
+                          {Number(inv.balance || inv.totalAmount) > 0
+                            ? `₹${Number(inv.balance || inv.totalAmount).toLocaleString()}`
+                            : 'Fully Paid'
+                          }
+                        </Typography>
                       </Box>
                     </TableCell>
                     <TableCell><Chip label={inv.status} size="small" color={getStatusColor(inv.status) as any} /></TableCell>
@@ -425,20 +486,24 @@ export default function BillingPage() {
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={handleCloseMenu}
-        PaperProps={{ elevation: 2, sx: { minWidth: 150, borderRadius: 2 } }}
+        PaperProps={{ elevation: 2, sx: { minWidth: 200, borderRadius: 2 } }}
       >
-        <MenuItem onClick={() => handlePrintInvoice()}>
-          <ListItemIcon><PrintIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Print / Download</ListItemText>
+        <MenuItem onClick={() => handleDownloadPDF('STANDARD')}>
+          <ListItemIcon><PictureAsPdfIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>Print / Save PDF</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => handleViewHistory()}>
+          <ListItemIcon><HistoryIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>View History</ListItemText>
         </MenuItem>
         <MenuItem onClick={() => { handleCloseMenu(); navigate(`/billing/invoices/${selectedInvoice?.id}`); }}>
           <ListItemIcon><TimelineIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Track Status</ListItemText>
         </MenuItem>
-        {selectedInvoice?.status !== 'PAID' && (
-          <MenuItem onClick={() => handlePayNow(selectedInvoice)}>
+        {selectedInvoice?.status !== 'PAID' && Number(selectedInvoice?.balance || selectedInvoice?.totalAmount) > 0 && (
+          <MenuItem onClick={() => handleRecordPayment(selectedInvoice)}>
             <ListItemIcon><PaymentIcon fontSize="small" color="primary" /></ListItemIcon>
-            <ListItemText>Pay Now (Simulation)</ListItemText>
+            <ListItemText>Record Payment</ListItemText>
           </MenuItem>
         )}
         {selectedInvoice?.status !== 'PAID' && (
@@ -451,6 +516,12 @@ export default function BillingPage() {
           <MenuItem onClick={() => handleUpdateStatus('PENDING')} sx={{ color: 'warning.main' }}>
             <ListItemIcon><PendingIcon fontSize="small" color="warning" /></ListItemIcon>
             <ListItemText>Mark as Pending</ListItemText>
+          </MenuItem>
+        )}
+        {selectedInvoice?.status !== 'PAID' && (
+          <MenuItem onClick={() => handleUpdateStatus('OVERDUE')} sx={{ color: 'error.main' }}>
+            <ListItemIcon><PendingIcon fontSize="small" color="error" /></ListItemIcon>
+            <ListItemText>Mark as Overdue</ListItemText>
           </MenuItem>
         )}
         <MenuItem onClick={handleDeleteInvoice} sx={{ color: 'error.main' }}>
@@ -656,6 +727,32 @@ export default function BillingPage() {
           </Typography>
         </DialogContent>
       </Dialog>
+
+      {/* Partial Payment Dialog */}
+      {selectedInvoiceForPartialPayment && (
+        <PartialPaymentDialog
+          open={partialPaymentDialogOpen}
+          onClose={() => {
+            setPartialPaymentDialogOpen(false);
+            setSelectedInvoiceForPartialPayment(null);
+          }}
+          invoice={selectedInvoiceForPartialPayment}
+          onSuccess={() => {
+            load(); // Reload invoices to show updated balances
+            notify.showSuccess('Payment recorded successfully');
+          }}
+        />
+      )}
+
+      {/* Invoice History Dialog */}
+      {selectedInvoice && (
+        <InvoiceHistoryDialog
+          open={historyDialogOpen}
+          onClose={() => setHistoryDialogOpen(false)}
+          invoiceId={selectedInvoice.id}
+          invoiceNumber={selectedInvoice.invoiceNumber}
+        />
+      )}
     </Box >
   );
 }

@@ -3,8 +3,36 @@ import type { Request, Response, NextFunction } from 'express';
 import { authenticate } from '../../middleware/authenticate';
 import * as billingService from './billing.service';
 import * as billingSchemas from './billing.schemas';
+import * as paymentService from './invoice-payment.service';
+import * as pdfService from './pdf-generator.service';
+import * as trackingService from './invoice-tracking.service';
+import * as templateService from './invoice-templates.service';
+import { requirePermission } from '../../middleware/requirePermission';
+import { z } from 'zod';
 
 export const billingRouter = Router();
+
+billingRouter.use((req, res, next) => {
+    console.log(`Billing Router hit: ${req.method} ${req.url}`);
+    next();
+});
+
+// GET ONE INVOICE - MOVE TO TOP FOR TESTING
+billingRouter.get('/invoices/:id', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    console.log(`Matching /invoices/:id with ID: ${req.params.id}`);
+    try {
+        const { id } = req.params;
+        const invoice = await billingService.getInvoiceById(id);
+        if (!invoice) {
+            console.log(`Invoice not found in DB for ID: ${id}`);
+            return res.status(404).json({ message: 'Invoice not found in database' });
+        }
+        return res.json(invoice);
+    } catch (e) {
+        console.error('Error in getInvoiceById:', e);
+        return next(e);
+    }
+});
 
 // Customers
 billingRouter.get('/customers', authenticate, async (_req: Request, res: Response, next: NextFunction) => {
@@ -217,5 +245,195 @@ billingRouter.post('/debit-notes', authenticate, async (req: Request, res: Respo
         return res.status(201).json({ debitNote });
     } catch (e) {
         return next(e);
+    }
+});
+
+// ======= ENHANCED INVOICE MANAGEMENT ROUTES =======
+
+// Record partial payment
+billingRouter.post('/invoices/:id/payments', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const payment = await paymentService.recordPartialPayment(id, req.body);
+        return res.status(201).json({ payment });
+    } catch (e: any) {
+        return res.status(400).json({ message: e.message || 'Failed to record payment' });
+    }
+});
+
+// Get invoice payments
+billingRouter.get('/invoices/:id/payments', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const payments = await paymentService.getInvoicePayments(id);
+        return res.json({ payments });
+    } catch (e) {
+        return next(e);
+    }
+});
+
+// Get invoice history
+billingRouter.get('/invoices/:id/history', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const history = await paymentService.getInvoiceHistory(id);
+        return res.json({ history });
+    } catch (e) {
+        return next(e);
+    }
+});
+
+// Download invoice PDF
+billingRouter.get('/invoices/:id/pdf', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const template = (req.query.template as string) || 'STANDARD';
+        const pdfBuffer = await pdfService.generateInvoicePDF(id, template);
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=invoice-${id}.pdf`);
+        return res.send(pdfBuffer);
+    } catch (e: any) {
+        return res.status(400).json({ message: e.message || 'Failed to generate PDF' });
+    }
+});
+
+// Download receipt PDF
+billingRouter.get('/payments/:paymentId/receipt', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { paymentId } = req.params;
+        const pdfBuffer = await pdfService.generateReceiptPDF(paymentId);
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=receipt-${paymentId}.pdf`);
+        return res.send(pdfBuffer);
+    } catch (e: any) {
+        return res.status(400).json({ message: e.message || 'Failed to generate receipt' });
+    }
+});
+
+// Download partial payment receipt
+billingRouter.get('/payments/:paymentId/partial-receipt', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { paymentId } = req.params;
+        const pdfBuffer = await pdfService.generatePartialPaymentReceipt(paymentId);
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=partial-payment-${paymentId}.pdf`);
+        return res.send(pdfBuffer);
+    } catch (e: any) {
+        return res.status(400).json({ message: e.message || 'Failed to generate partial payment receipt' });
+    }
+});
+
+// Create monthly invoice
+billingRouter.post('/invoices/monthly', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const invoice = await paymentService.createMonthlyInvoice(req.body);
+        return res.status(201).json({ invoice });
+    } catch (e: any) {
+        return res.status(400).json({ message: e.message || 'Failed to create monthly invoice' });
+    }
+});
+
+// Get invoices by month
+billingRouter.get('/invoices/by-month/:month', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { month } = req.params;
+        const invoices = await paymentService.getInvoicesByMonth(month);
+        return res.json({ invoices });
+    } catch (e) {
+        return next(e);
+    }
+});
+
+// --- Merged Tracking Routes ---
+
+billingRouter.get('/invoices/:id/tracking', authenticate, async (req, res) => {
+    try {
+        const tracking = await trackingService.getInvoiceTracking(req.params.id);
+        if (!tracking) return res.status(404).json({ message: 'Invoice tracking not found' });
+        res.json(tracking);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+billingRouter.patch('/invoices/:id/status', authenticate, requirePermission('billing.manage'), async (req, res) => {
+    try {
+        const { status, notes } = req.body;
+        if (!status) return res.status(400).json({ message: 'Status is required' });
+        const updated = await trackingService.updateInvoiceTracking(req.params.id, req.userId!, status, notes);
+        res.json(updated);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+billingRouter.post('/invoices/:id/reminders', authenticate, requirePermission('billing.manage'), async (req, res) => {
+    try {
+        const schema = z.object({
+            reminderType: z.enum(['AUTO', 'MANUAL']),
+            nextReminderAt: z.string().optional(),
+        });
+        const data = schema.parse(req.body);
+        const reminder = await trackingService.createReminder(req.userId!, {
+            invoiceId: req.params.id,
+            reminderType: data.reminderType,
+            nextReminderAt: data.nextReminderAt ? new Date(data.nextReminderAt) : undefined
+        });
+        res.json(reminder);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// --- Merged Template Routes ---
+
+billingRouter.get('/templates', authenticate, async (req, res) => {
+    try {
+        const templates = await templateService.getTemplates();
+        res.json({ templates });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+billingRouter.post('/templates', authenticate, requirePermission('billing.manage'), async (req, res) => {
+    try {
+        const schema = z.object({
+            name: z.string(),
+            htmlContent: z.string(),
+            isDefault: z.boolean().optional(),
+        });
+        const data = schema.parse(req.body);
+        const template = await templateService.createTemplate(req.userId!, data);
+        res.json({ template });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+billingRouter.patch('/templates/:id', authenticate, requirePermission('billing.manage'), async (req, res) => {
+    try {
+        const schema = z.object({
+            name: z.string().optional(),
+            htmlContent: z.string().optional(),
+            isDefault: z.boolean().optional(),
+        });
+        const data = schema.parse(req.body);
+        const template = await templateService.updateTemplate(req.params.id, req.userId!, data);
+        res.json({ template });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+billingRouter.delete('/templates/:id', authenticate, requirePermission('billing.manage'), async (req, res) => {
+    try {
+        await templateService.deleteTemplate(req.params.id, req.userId!);
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
     }
 });

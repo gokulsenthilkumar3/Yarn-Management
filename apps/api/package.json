@@ -38,6 +38,7 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
     "node-cache": "^5.1.2",
+    "puppeteer": "^24.36.1",
     "qrcode": "^1.5.4",
     "rss-parser": "^3.13.0",
     "speakeasy": "^2.0.0",

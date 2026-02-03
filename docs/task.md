@@ -586,7 +586,7 @@
 
 #### 36. Invoice Improvements
 - [x] Professional invoice templates
-  - [x] Multiple template designs
+  - [x] Multiple template designs (Standard Professional Implementation)
   - [x] Company branding
   - [x] Custom fields
   - [x] Multi-language support
@@ -598,8 +598,9 @@
 - [x] Invoice tracking
   - [x] Sent/viewed/paid status
   - [x] Payment link tracking
-  - [x] Overdue invoice alerts
-  - [x] Collection follow-ups
+  - [x] Overdue invoice alerts (Dashboard Widget)
+  - [x] Collection follow-ups (Manual Reminders)
+- [x] **PDF/Print Fixes** (Browser-based Print View implemented)
 
 ---
 
