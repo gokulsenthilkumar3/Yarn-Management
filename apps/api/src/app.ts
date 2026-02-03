@@ -14,7 +14,6 @@ import { costOptimizationRouter } from './modules/raw-materials/cost-optimizatio
 import { customerRouter } from './modules/customers/customer.routes';
 import { manufacturingRouter } from './modules/manufacturing/manufacturing.routes';
 import { billingRouter } from './modules/billing/billing.routes';
-import { invoiceTrackingRouterExport } from './modules/billing/invoice-tracking.routes';
 import { finishedGoodsRouter } from './modules/finished-goods/finished-goods.routes';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes';
 import { notificationRouter } from './modules/notifications/notification.routes';
@@ -23,6 +22,7 @@ import importRouter from './modules/import/import.routes';
 import { qualityControlRouter } from './modules/quality-control/quality-control.routes';
 import { procurementRouter } from './modules/procurement/procurement.routes';
 import { portalRouterExport } from './modules/portal/portal.routes';
+import { customerPortalRouter } from './modules/customer-portal/customer-portal.routes';
 import { planningRouter } from './modules/production/planning.routes';
 import { machineRouter } from './modules/production/machine.routes';
 import { monitoringRouterExport } from './modules/production/monitoring.routes';
@@ -75,6 +75,7 @@ export function createApp() {
   app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
   app.get('/health', (_req: Request, res: Response) => res.json({ ok: true }));
+  app.get('/test-ping', (_req: Request, res: Response) => res.json({ message: 'pong' }));
 
   app.use('/auth', authRouter);
   app.use('/', importRouter);
@@ -86,7 +87,6 @@ export function createApp() {
   app.use('/manufacturing', manufacturingRouter);
   app.use('/manufacturing/efficiency', efficiencyRouter);
   app.use('/billing', billingRouter);
-  app.use('/billing', invoiceTrackingRouterExport);
   app.use('/finished-goods', finishedGoodsRouter);
   app.use('/dashboard', dashboardRouter);
   app.use('/notifications', notificationRouter);
@@ -94,6 +94,7 @@ export function createApp() {
   app.use('/quality-control', qualityControlRouter);
   app.use('/procurement', procurementRouter);
   app.use('/portal', portalRouterExport);
+  app.use('/customer-portal', customerPortalRouter);
   app.use('/production', planningRouter);
   app.use('/production', machineRouter);
   app.use('/production', monitoringRouterExport);
@@ -119,6 +120,11 @@ export function createApp() {
   app.use('/session-logs', sessionLogsRouter);
   app.use('/news-intelligence', newsIntelligenceRouter);
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+  app.use((req, res, next) => {
+    console.log(`404 at ${req.method} ${req.url}`);
+    next();
+  });
 
   app.use(errorHandler);
 

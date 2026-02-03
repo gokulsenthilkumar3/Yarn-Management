@@ -27,6 +27,7 @@ model User {
   mfaEnabled          Boolean                  @default(false)
   mfaSecret           String?
   supplierId          String?
+  customerId          String?
   apiKeys             ApiKey[]
   auditLogs           AuditLog[]
   authenticators      Authenticator[]
@@ -38,6 +39,7 @@ model User {
   qualityInspections  QualityInspection[]
   refreshTokens       RefreshToken[]
   supplier            Supplier?                @relation(fields: [supplierId], references: [id])
+  customer            Customer?                @relation(fields: [customerId], references: [id])
   roles               UserRole[]
   webhooks            WebhookSubscription[]
   allowedIPs          String[]                 @default([])
@@ -1052,7 +1054,10 @@ model Invoice {
   customerId      String?
   date            DateTime                @default(now())
   billingCycle    String?
+  invoiceMonth    String?                 // YYYY-MM format for monthly filtering
   totalAmount     Decimal                 @db.Decimal(12, 2)
+  paidAmount      Decimal                 @default(0) @db.Decimal(12, 2) // Total amount paid
+  balance         Decimal                 @default(0) @db.Decimal(12, 2) // Remaining balance
   taxAmount       Decimal                 @default(0) @db.Decimal(12, 2)
   status          InvoiceStatus           @default(DRAFT)
   notes           String?
@@ -1061,6 +1066,7 @@ model Invoice {
   paymentLink     String?
   paymentLinkToken String?                @unique
   isRecurring     Boolean                 @default(false)
+  isLocked        Boolean                 @default(true) // Prevents editing after creation
   sentAt          DateTime?
   viewedAt        DateTime?
   paidAt          DateTime?
@@ -1068,6 +1074,8 @@ model Invoice {
   updatedAt       DateTime                @updatedAt
   followUps       ARFollowUp[]
   payments        ARPayment[]
+  invoicePayments InvoicePayment[]        // New: Dedicated payment tracking
+  history         InvoiceHistory[]        // New: Audit trail
   creditNotes     CreditNote[]
   debitNotes      DebitNote[]
   reminders       InvoiceReminder[]
@@ -1080,12 +1088,16 @@ model Invoice {
   @@index([customerName])
   @@index([status])
   @@index([date])
+  @@index([invoiceMonth])
 }
 
 model InvoiceTemplate {
   id          String   @id @default(uuid())
   name        String
   htmlContent String   @db.Text
+  themeColor  String?  @default("#1976d2") // Primary theme color
+  logoUrl     String?  // Company logo URL
+  customCss   String?  @db.Text // Additional custom styling
   isDefault   Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -1153,6 +1165,8 @@ model Customer {
   badDebtProvisions BadDebtProvision[]
   invoices          Invoice[]
   salesOrders       SalesOrder[]
+  users             User[]
+  supportTickets    SupportTicket[]
   
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
@@ -1587,6 +1601,8 @@ model SupportTicket {
   status        TicketStatus    @default(OPEN)
   createdBy     String?
   assignedTo    String?
+  customerId    String?
+  customer      Customer?       @relation(fields: [customerId], references: [id])
   resolvedAt    DateTime?
   closedAt      DateTime?
   createdAt     DateTime        @default(now())
@@ -1598,6 +1614,7 @@ model SupportTicket {
   @@index([priority])
   @@index([assignedTo])
   @@index([createdBy])
+  @@index([customerId])
 }
 
 model TicketComment {
@@ -1729,6 +1746,39 @@ model InvoiceItem {
   invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
+}
+
+model InvoicePayment {
+  id            String   @id @default(uuid())
+  invoiceId     String
+  receiptNumber String   @unique
+  amount        Decimal  @db.Decimal(12, 2)
+  paymentMethod String   // CASH, BANK_TRANSFER, CARD, UPI, CHEQUE, OTHER
+  paymentDate   DateTime @default(now())
+  reference     String?  // Transaction/cheque reference
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([paymentDate])
+}
+
+model InvoiceHistory {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  action      String   // CREATED, VIEWED, SENT, PAYMENT_RECEIVED, STATUS_CHANGED, DOWNLOADED
+  description String?
+  performedBy String?  // User ID or system
+  oldValue    String?  // For status changes
+  newValue    String?  // For status changes
+  createdAt   DateTime @default(now())
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([action])
+  @@index([createdAt])
 }
 
 model RecurringBillingConfig {
@@ -2060,8 +2110,11 @@ enum InvoiceStatus {
   VIEWED
   PAID
   PENDING
+  PARTIALLY_PAID
   OVERDUE
   VOID
+  CANCELLED
+  REFUNDED
 }
 
 enum BillingFrequency {

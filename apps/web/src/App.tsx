@@ -10,7 +10,7 @@ import { CircularProgress, Box } from '@mui/material';
 // Lazy load all page components for code splitting
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
-const InvoicePrintPage = lazy(() => import('./pages/InvoicePrintPage'));
+const InvoicePrintPage = lazy(() => import('./pages/InvoicePrintView'));
 const ProtectedRoute = lazy(() => import('./components/ProtectedRoute'));
 const AppLayout = lazy(() => import('./components/AppLayout'));
 const ProcurementPage = lazy(() => import('./pages/ProcurementPage'));
@@ -29,6 +29,14 @@ const SupplierLayout = lazy(() => import('./layouts/SupplierLayout'));
 const SupplierDashboard = lazy(() => import('./pages/portal/SupplierDashboard'));
 const SupplierOrderList = lazy(() => import('./pages/portal/SupplierOrderList'));
 const SupplierOrderDetail = lazy(() => import('./pages/portal/SupplierOrderDetail'));
+const CustomerLayout = lazy(() => import('./layouts/CustomerLayout'));
+const CustomerDashboard = lazy(() => import('./pages/customer-portal/CustomerDashboard'));
+const CustomerOrderList = lazy(() => import('./pages/customer-portal/CustomerOrderList'));
+const CustomerOrderDetail = lazy(() => import('./pages/customer-portal/CustomerOrderDetail'));
+const CustomerInvoiceList = lazy(() => import('./pages/customer-portal/CustomerInvoiceList'));
+const CustomerInvoiceDetail = lazy(() => import('./pages/customer-portal/CustomerInvoiceDetail'));
+const CustomerAccount = lazy(() => import('./pages/customer-portal/CustomerAccount'));
+const CustomerSupport = lazy(() => import('./pages/customer-portal/CustomerSupport'));
 const ProductionPlanningPage = lazy(() => import('./pages/ProductionPlanningPage'));
 const WorkOrderPage = lazy(() => import('./pages/WorkOrderPage'));
 const ShiftManagementPage = lazy(() => import('./pages/ShiftManagementPage'));
@@ -81,10 +89,8 @@ export default function App() {
             <Suspense fallback={<LoadingFallback />}>
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
-                <Route path="/billing/print/:id" element={<InvoicePrintPage />} />
-
-                {/* Main App Routes */}
                 <Route element={<ProtectedRoute />}>
+                  <Route path="/billing/print/:id" element={<InvoicePrintPage />} />
                   <Route element={<AppLayout />}>
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
                     <Route path="/dashboard" element={<DashboardPage />} />
@@ -149,6 +155,22 @@ export default function App() {
                   <Route path="dashboard" element={<SupplierDashboard />} />
                   <Route path="orders" element={<SupplierOrderList />} />
                   <Route path="orders/:id" element={<SupplierOrderDetail />} />
+                </Route>
+
+                {/* Customer Portal Routes */}
+                <Route path="/customer-portal" element={
+                  <ProtectedRoute>
+                    <CustomerLayout />
+                  </ProtectedRoute>
+                }>
+                  <Route index element={<Navigate to="dashboard" replace />} />
+                  <Route path="dashboard" element={<CustomerDashboard />} />
+                  <Route path="orders" element={<CustomerOrderList />} />
+                  <Route path="orders/:id" element={<CustomerOrderDetail />} />
+                  <Route path="invoices" element={<CustomerInvoiceList />} />
+                  <Route path="invoices/:id" element={<CustomerInvoiceDetail />} />
+                  <Route path="account" element={<CustomerAccount />} />
+                  <Route path="support" element={<CustomerSupport />} />
                 </Route>
 
                 <Route path="*" element={<Navigate to="/" replace />} />
