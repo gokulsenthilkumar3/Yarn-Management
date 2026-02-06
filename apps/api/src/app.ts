@@ -123,7 +123,7 @@ export function createApp() {
 
   app.use((req, res, next) => {
     console.log(`404 at ${req.method} ${req.url}`);
-    next();
+    res.status(404).json({ message: 'Not Found' });
   });
 
   app.use(errorHandler);

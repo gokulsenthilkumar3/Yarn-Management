@@ -15,8 +15,8 @@ function daysToMs(days: number) {
   return days * 24 * 60 * 60 * 1000;
 }
 
-function signAccessToken(userId: string) {
-  return jwt.sign({ sub: userId }, String(env.JWT_ACCESS_SECRET), {
+function signAccessToken(userId: string, sessionId?: string) {
+  return jwt.sign({ sub: userId, sid: sessionId }, String(env.JWT_ACCESS_SECRET), {
     expiresIn: String(env.JWT_ACCESS_EXPIRES_IN) as any,
   });
 }
@@ -216,11 +216,10 @@ export async function createSession(userId: string, ip?: string, userAgent?: str
     });
   }
 
-  const accessToken = signAccessToken(userId);
   const refresh = signRefreshToken(userId);
-
   const tokenHash = await hashToken(refresh.raw);
-  await prisma.refreshToken.create({
+
+  const refreshTokenEntry = await prisma.refreshToken.create({
     data: {
       userId: userId,
       tokenHash,
@@ -230,6 +229,8 @@ export async function createSession(userId: string, ip?: string, userAgent?: str
       lastActive: new Date()
     },
   });
+
+  const accessToken = signAccessToken(userId, refreshTokenEntry.id);
 
   // Create Session Log
   try {
@@ -289,11 +290,10 @@ export async function refresh(refreshToken: string, ip?: string, userAgent?: str
   // Delete old token (rotate)
   await prisma.refreshToken.delete({ where: { id: match.id } });
 
-  const accessToken = signAccessToken(userId);
   const newRefresh = signRefreshToken(userId);
   const newTokenHash = await hashToken(newRefresh.raw);
 
-  await prisma.refreshToken.create({
+  const refreshTokenEntry = await prisma.refreshToken.create({
     data: {
       userId,
       tokenHash: newTokenHash,
@@ -303,6 +303,8 @@ export async function refresh(refreshToken: string, ip?: string, userAgent?: str
       lastActive: new Date()
     },
   });
+
+  const accessToken = signAccessToken(userId, refreshTokenEntry.id);
 
   // Update Session Log with new token hash
   try {
@@ -420,4 +422,39 @@ export async function validateMfa(userId: string, token: string) {
     encoding: 'base32',
     token,
   });
+}
+
+export async function cleanupIdleSessions() {
+  const idleThreshold = new Date(Date.now() - 8 * 60 * 1000); // 8 minutes ago
+
+  try {
+    const idleSessions = await prisma.refreshToken.findMany({
+      where: {
+        lastActive: { lt: idleThreshold }
+      }
+    });
+
+    if (idleSessions.length > 0) {
+      console.log(`Cleaning up ${idleSessions.length} idle sessions...`);
+
+      // Delete refresh tokens
+      await prisma.refreshToken.deleteMany({
+        where: { id: { in: idleSessions.map(s => s.id) } }
+      });
+
+      // Update session logs
+      await prisma.sessionLog.updateMany({
+        where: {
+          sessionToken: { in: idleSessions.map(s => s.tokenHash) },
+          isActive: true
+        },
+        data: {
+          isActive: false,
+          logoutAt: new Date()
+        }
+      });
+    }
+  } catch (e) {
+    console.error('Failed to cleanup idle sessions:', e);
+  }
 }

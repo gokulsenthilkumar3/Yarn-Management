@@ -1,4 +1,5 @@
 import { prisma } from '../../prisma/client';
+import { TicketCategory, TicketPriority } from '@prisma/client';
 
 /**
  * Support Service - Tickets and Knowledge Base
@@ -19,6 +20,8 @@ export async function createTicket(data: {
     return await prisma.supportTicket.create({
         data: {
             ...data,
+            category: data.category as TicketCategory | undefined,
+            priority: data.priority as TicketPriority | undefined,
             ticketNumber
         }
     });

@@ -16,9 +16,21 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   const token = header.slice('Bearer '.length);
 
   try {
-    const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET) as JwtPayload;
+    const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET) as JwtPayload & { sid?: string };
     const userId = decoded.sub;
+    const sessionId = decoded.sid;
     req.userId = userId;
+
+    // Update last active if sessionId exists
+    if (sessionId) {
+      prisma.refreshToken.update({
+        where: { id: sessionId },
+        data: { lastActive: new Date() }
+      }).catch(err => {
+        // Silently fail if session doesn't exist anymore or other DB error
+        console.error('Failed to update session lastActive:', err);
+      });
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: userId },

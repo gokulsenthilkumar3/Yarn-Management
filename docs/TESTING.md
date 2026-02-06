@@ -8,6 +8,7 @@ The project uses different testing frameworks for backend and frontend:
 
 - **Backend (API)**: Jest + Supertest
 - **Frontend (Web)**: Vitest + React Testing Library
+- **End-to-End (E2E)**: Playwright (with Cross-browser support)
 
 ## Running Tests
 
@@ -40,6 +41,31 @@ npm run test:ui
 # Run tests with coverage
 npm run test:coverage
 ```
+
+### End-to-End (E2E) Tests
+
+The system uses Playwright for comprehensive E2E testing across multi-browser and mobile viewports.
+
+```bash
+cd apps/web
+
+# Run all E2E tests (Chromium, Firefox, Webkit, Mobile)
+npm run test:e2e
+
+# Run tests for a specific module
+npx playwright test e2e/auth.spec.ts
+
+# Run tests in UI mode
+npx playwright test --ui
+
+# Debugging tests (with Trace Viewer)
+npx playwright test --trace on
+```
+
+#### Authentication Setup
+E2E tests use a **setup project** to authenticate once and reuse the state across all specs. This is handled in `e2e/auth.setup.ts`. 
+
+If you change admin credentials, you must update the system's seed data or the setup script to maintain stability.
 
 ## Test Structure
 

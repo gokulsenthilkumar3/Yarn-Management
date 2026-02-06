@@ -1,4 +1,5 @@
 import { prisma } from '../../prisma/client';
+import { DocumentType, DocumentAccessLevel } from '@prisma/client';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 
@@ -80,6 +81,8 @@ export async function createDocument(data: {
     return await prisma.document.create({
         data: {
             ...data,
+            documentType: data.documentType as DocumentType,
+            accessLevel: data.accessLevel as DocumentAccessLevel,
             tags: data.tags || []
         }
     });

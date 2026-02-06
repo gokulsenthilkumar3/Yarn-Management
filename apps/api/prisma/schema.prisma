@@ -654,6 +654,7 @@ model PurchaseOrder {
   supplierId           String
   orderDate            DateTime            @default(now())
   expectedDeliveryDate DateTime?
+  actualDeliveryDate   DateTime?
   status               POStatus            @default(DRAFT)
   totalAmount          Decimal             @db.Decimal(12, 2)
   notes                String?
@@ -760,8 +761,10 @@ model GoodsReceiptNoteItem {
   id           String           @id @default(uuid())
   grnId        String
   materialType String
-  quantity     Float
-  unit         String
+  quantity         Float
+  acceptedQuantity Float            @default(0)
+  rejectedQuantity Float            @default(0)
+  unit             String
   batchNumber  String?
   remarks      String?
   grn          GoodsReceiptNote @relation(fields: [grnId], references: [id], onDelete: Cascade)

@@ -56,18 +56,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    const logout = () => {
-        clearToken();
-        setUser(null);
-        window.location.href = '/login';
+    const logout = async () => {
+        try {
+            const { http } = await import('../lib/http');
+            await http.post('/auth/logout');
+        } catch (e) {
+            console.error('Failed to logout on server', e);
+        } finally {
+            clearToken();
+            setUser(null);
+            window.location.href = '/login';
+        }
     };
 
     const refreshProfile = async () => {
         try {
-            // We need to use http client here but avoiding circular dependency might be tricky if http uses auth context?
-            // http uses lib/auth which is pure functions. AuthContext uses lib/auth.
-            // But we can't import http here if http imports auth which imports something else...
-            // Let's rely on fetch or check http implementation. http imports setAccessToken/getAccessToken from lib/auth. Safe.
             const { http } = await import('../lib/http');
             const { data } = await http.get('/users/me');
             if (data.user) {
@@ -80,6 +83,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.error('Failed to refresh profile', e);
         }
     };
+
+    useEffect(() => {
+        if (!user) return;
+
+        let idleTimer: ReturnType<typeof setTimeout>;
+        const timeout = 8 * 60 * 1000; // 8 minutes
+
+        const resetTimer = () => {
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(() => {
+                console.log('Idle timeout reached, revoking session...');
+                logout();
+            }, timeout);
+        };
+
+        const activityEvents = [
+            'mousedown',
+            'mousemove',
+            'keydown',
+            'scroll',
+            'touchstart',
+            'click'
+        ];
+
+        activityEvents.forEach(event => {
+            window.addEventListener(event, resetTimer);
+        });
+
+        resetTimer();
+
+        return () => {
+            clearTimeout(idleTimer);
+            activityEvents.forEach(event => {
+                window.removeEventListener(event, resetTimer);
+            });
+        };
+    }, [user]);
 
     return (
         <AuthContext.Provider value={{
