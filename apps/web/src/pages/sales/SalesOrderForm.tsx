@@ -155,7 +155,6 @@ const SalesOrderForm = () => {
                                 label="Customer"
                                 value={formData.customerId}
                                 onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
-                                spacing={2}
                                 margin="normal"
                                 required
                             >

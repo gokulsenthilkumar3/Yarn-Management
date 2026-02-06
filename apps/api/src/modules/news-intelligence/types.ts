@@ -60,7 +60,8 @@ export type ContentPillar =
 export type Sector =
     | 'Cotton' | 'Yarn' | 'Fabric' | 'Knitting' | 'Weaving' | 'Processing'
     | 'Garments' | 'Denim' | 'Home Textiles' | 'Technical Textiles'
-    | 'Man-Made Fiber' | 'Machinery' | 'Trade' | 'Sustainability' | 'Policy' | 'Industry';
+    | 'Man-Made Fiber' | 'Machinery' | 'Trade' | 'Sustainability' | 'Policy' | 'Industry'
+    | 'Technology' | 'Innovation' | 'Market Intelligence';
 
 export type Priority = 'breaking' | 'high' | 'medium' | 'low';
 

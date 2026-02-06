@@ -136,7 +136,7 @@ export async function calculateQualityScore(supplierId: string): Promise<number>
 
     goodsReceipts.forEach((receipt) => {
         receipt.items.forEach((item) => {
-            totalItems += item.receivedQuantity;
+            totalItems += item.quantity;
             acceptedItems += item.acceptedQuantity;
         });
     });

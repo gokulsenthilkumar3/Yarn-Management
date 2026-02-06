@@ -1,4 +1,5 @@
 import { prisma } from '../../prisma/client';
+import { AnnouncementPriority } from '@prisma/client';
 
 /**
  * Communication Service - Messaging and Announcements
@@ -86,6 +87,7 @@ export async function createAnnouncement(data: {
     return await prisma.announcement.create({
         data: {
             ...data,
+            priority: data.priority as AnnouncementPriority | undefined,
             targetRoles: data.targetRoles || []
         }
     });

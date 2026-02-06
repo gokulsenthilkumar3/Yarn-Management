@@ -1,4 +1,5 @@
 import { prisma } from '../../prisma/client';
+import { AttendanceStatus } from '@prisma/client';
 
 /**
  * Attendance Management Service
@@ -26,7 +27,10 @@ export async function markAttendance(data: {
     if (existing) {
         return await prisma.attendance.update({
             where: { id: existing.id },
-            data: rest
+            data: {
+                ...rest,
+                status: rest.status as AttendanceStatus
+            }
         });
     }
 
@@ -34,7 +38,8 @@ export async function markAttendance(data: {
         data: {
             employeeId,
             date: new Date(date.toDateString()),
-            ...rest
+            ...rest,
+            status: rest.status as AttendanceStatus
         }
     });
 }

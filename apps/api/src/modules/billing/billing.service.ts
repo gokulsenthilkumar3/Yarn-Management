@@ -307,6 +307,8 @@ export const getCustomers = async () => {
     });
 };
 
+// ... (imports)
+
 export const createCustomer = async (body: {
     name: string;
     email?: string;
@@ -320,7 +322,17 @@ export const createCustomer = async (body: {
             name: body.name.trim(),
             email: body.email || null,
             phone: body.phone || null,
-            address: body.address || null,
+            // Map simple address string to addresses relation
+            addresses: body.address ? {
+                create: {
+                    line1: body.address,
+                    city: 'Unknown',
+                    state: 'Unknown',
+                    pincode: '000000',
+                    isDefault: true,
+                    type: 'BILLING'
+                }
+            } : undefined,
             gstin: body.gstin || null,
             creditLimit: body.creditLimit === undefined ? null : toDecimal(body.creditLimit),
         }
@@ -339,7 +351,7 @@ export const updateCustomer = async (id: string, body: {
         data: {
             email: body.email === undefined ? undefined : (body.email || null),
             phone: body.phone === undefined ? undefined : (body.phone || null),
-            address: body.address === undefined ? undefined : (body.address || null),
+            // address: body.address === undefined ? undefined : (body.address || null), // TODO: Handle address update with new schema
             gstin: body.gstin === undefined ? undefined : (body.gstin || null),
             creditLimit: body.creditLimit === undefined ? undefined : (body.creditLimit === null ? null : toDecimal(body.creditLimit)),
         },
